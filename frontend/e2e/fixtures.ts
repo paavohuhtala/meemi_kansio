@@ -6,14 +6,10 @@ export const e2eTest = test.extend({
   baseURL: async ({}, use) => {
     await use(serverUrl());
   },
-  _autoReset: [
-    // eslint-disable-next-line no-empty-pattern
-    async ({}, use) => {
-      await use(undefined);
+  page: async ({ page }, use) => {
+      await use(page);
       await resetDatabase();
-    },
-    { auto: true, scope: 'test' },
-  ],
+  },
 });
 
 export { expect } from '@playwright/test';
