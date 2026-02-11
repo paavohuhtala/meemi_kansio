@@ -1,6 +1,15 @@
-import { Link, Outlet } from 'react-router-dom';
+import { Link, Outlet, useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { useAuth } from '../hooks/useAuth';
+import {
+  DropdownMenuRoot,
+  DropdownMenuTrigger,
+  DropdownMenuPortal,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from './DropdownMenu';
 
 const Nav = styled.nav`
   display: flex;
@@ -21,34 +30,20 @@ const Logo = styled(Link)`
   }
 `;
 
-const NavLinks = styled.div`
-  display: flex;
-  gap: ${({ theme }) => theme.spacing.md};
+const Spacer = styled.div`
   margin-left: auto;
+`;
+
+const TriggerButton = styled.button`
+  all: unset;
+  display: flex;
   align-items: center;
-`;
-
-const NavLink = styled(Link)`
+  gap: ${({ theme }) => theme.spacing.xs};
   color: ${({ theme }) => theme.colors.textSecondary};
   font-size: ${({ theme }) => theme.fontSize.sm};
-
-  &:hover {
-    color: ${({ theme }) => theme.colors.text};
-  }
-`;
-
-const Username = styled.span`
-  color: ${({ theme }) => theme.colors.textSecondary};
-  font-size: ${({ theme }) => theme.fontSize.sm};
-`;
-
-const LogoutBtn = styled.button`
-  background: none;
-  border: none;
-  color: ${({ theme }) => theme.colors.textSecondary};
   cursor: pointer;
-  font-size: ${({ theme }) => theme.fontSize.sm};
-  padding: 0;
+  padding: ${({ theme }) => theme.spacing.xs} ${({ theme }) => theme.spacing.sm};
+  border-radius: ${({ theme }) => theme.borderRadius.sm};
 
   &:hover {
     color: ${({ theme }) => theme.colors.text};
@@ -57,16 +52,34 @@ const LogoutBtn = styled.button`
 
 export function Layout() {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
 
   return (
     <>
       <Nav>
         <Logo to="/">meemi</Logo>
-        <NavLinks>
-          {user?.role === 'admin' && <NavLink to="/admin">Admin</NavLink>}
-          <Username>{user?.username}</Username>
-          <LogoutBtn onClick={() => logout()}>Log out</LogoutBtn>
-        </NavLinks>
+        <Spacer />
+        <DropdownMenuRoot>
+          <DropdownMenuTrigger asChild>
+            <TriggerButton>
+              {user?.username} &#9662;
+            </TriggerButton>
+          </DropdownMenuTrigger>
+          <DropdownMenuPortal>
+            <DropdownMenuContent align="end" sideOffset={4}>
+              <DropdownMenuLabel>{user?.username}</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {user?.role === 'admin' && (
+                <DropdownMenuItem onSelect={() => navigate('/admin')}>
+                  Admin
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem onSelect={() => logout()}>
+                Log out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenuPortal>
+        </DropdownMenuRoot>
       </Nav>
       <Outlet />
     </>

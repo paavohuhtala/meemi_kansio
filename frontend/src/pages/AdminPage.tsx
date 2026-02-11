@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import styled from 'styled-components';
 import { listInvites, createInvite, type Invite } from '../api/invites';
+import { Button, Input } from '../components';
 
 const Container = styled.div`
   padding: ${({ theme }) => theme.spacing.xl};
@@ -26,35 +27,6 @@ const CreateRow = styled.div`
   gap: ${({ theme }) => theme.spacing.sm};
   align-items: center;
   margin-bottom: ${({ theme }) => theme.spacing.lg};
-`;
-
-const Input = styled.input`
-  background: ${({ theme }) => theme.colors.bg};
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: ${({ theme }) => theme.borderRadius.md};
-  color: ${({ theme }) => theme.colors.text};
-  font-size: ${({ theme }) => theme.fontSize.md};
-  padding: ${({ theme }) => theme.spacing.sm} ${({ theme }) => theme.spacing.md};
-  width: 120px;
-`;
-
-const Button = styled.button`
-  background: ${({ theme }) => theme.colors.primary};
-  border: none;
-  border-radius: ${({ theme }) => theme.borderRadius.md};
-  color: white;
-  cursor: pointer;
-  font-size: ${({ theme }) => theme.fontSize.sm};
-  padding: ${({ theme }) => theme.spacing.sm} ${({ theme }) => theme.spacing.md};
-
-  &:hover {
-    background: ${({ theme }) => theme.colors.primaryHover};
-  }
-
-  &:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
 `;
 
 const Table = styled.table`
@@ -104,6 +76,11 @@ const Code = styled.code`
   font-size: ${({ theme }) => theme.fontSize.sm};
 `;
 
+const HoursLabel = styled.span`
+  color: ${({ theme }) => theme.colors.textSecondary};
+  font-size: ${({ theme }) => theme.fontSize.sm};
+`;
+
 function inviteStatus(invite: Invite): 'active' | 'used' | 'expired' {
   if (invite.used_by) return 'used';
   if (new Date(invite.expires_at) < new Date()) return 'expired';
@@ -130,7 +107,7 @@ export function AdminPage() {
       <Section>
         <SectionTitle>Invites</SectionTitle>
         <CreateRow>
-          <Button onClick={() => mutation.mutate()} disabled={mutation.isPending}>
+          <Button onClick={() => mutation.mutate()} loading={mutation.isPending}>
             {mutation.isPending ? 'Creating...' : 'New invite'}
           </Button>
           <Input
@@ -138,8 +115,9 @@ export function AdminPage() {
             value={hours}
             onChange={(e) => setHours(e.target.value)}
             min="1"
+            style={{ width: 120 }}
           />
-          <span style={{ color: '#888', fontSize: '0.875rem' }}>hours</span>
+          <HoursLabel>hours</HoursLabel>
         </CreateRow>
 
         {isLoading ? (

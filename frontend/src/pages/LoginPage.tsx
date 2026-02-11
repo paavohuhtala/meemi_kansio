@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { useAuth } from '../hooks/useAuth';
 import { ApiError } from '../api/client';
+import { Button, Input } from '../components';
 
 const Wrapper = styled.div`
   min-height: 100vh;
@@ -31,39 +32,6 @@ const Form = styled.form`
   display: flex;
   flex-direction: column;
   gap: ${({ theme }) => theme.spacing.md};
-`;
-
-const Input = styled.input`
-  background: ${({ theme }) => theme.colors.bg};
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: ${({ theme }) => theme.borderRadius.md};
-  color: ${({ theme }) => theme.colors.text};
-  font-size: ${({ theme }) => theme.fontSize.md};
-  padding: ${({ theme }) => theme.spacing.sm} ${({ theme }) => theme.spacing.md};
-
-  &:focus {
-    outline: none;
-    border-color: ${({ theme }) => theme.colors.primary};
-  }
-`;
-
-const Button = styled.button`
-  background: ${({ theme }) => theme.colors.primary};
-  border: none;
-  border-radius: ${({ theme }) => theme.borderRadius.md};
-  color: white;
-  cursor: pointer;
-  font-size: ${({ theme }) => theme.fontSize.md};
-  padding: ${({ theme }) => theme.spacing.sm} ${({ theme }) => theme.spacing.md};
-
-  &:hover {
-    background: ${({ theme }) => theme.colors.primaryHover};
-  }
-
-  &:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
 `;
 
 const ErrorMsg = styled.p`
@@ -120,7 +88,7 @@ export function LoginPage() {
             onChange={(e) => setPassword(e.target.value)}
           />
           {error && <ErrorMsg>{error}</ErrorMsg>}
-          <Button type="submit" disabled={loading}>
+          <Button type="submit" loading={loading}>
             {loading ? 'Logging in...' : 'Log in'}
           </Button>
         </Form>
