@@ -37,3 +37,20 @@ export function listMedia(cursor?: string) {
   const qs = params.toString();
   return apiFetch<MediaPage>(`/media${qs ? `?${qs}` : ''}`);
 }
+
+export function updateMedia(id: string, data: { name?: string; description?: string }) {
+  return apiFetch<MediaItem>(`/media/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+}
+
+export function replaceMediaFile(id: string, file: File) {
+  const form = new FormData();
+  form.append('file', file);
+  return apiFetchFormData<MediaItem>(`/media/${id}/file`, form, 'PUT');
+}
+
+export function deleteMedia(id: string) {
+  return apiFetch<void>(`/media/${id}`, { method: 'DELETE' });
+}

@@ -10,3 +10,15 @@ export {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from './DropdownMenu';
+export {
+  AlertDialogRoot,
+  AlertDialogTrigger,
+  AlertDialogPortal,
+  AlertDialogOverlay,
+  AlertDialogContent,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogActions,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from './AlertDialog';

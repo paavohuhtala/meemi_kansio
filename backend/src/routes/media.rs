@@ -2,7 +2,8 @@ use std::io::Cursor;
 use std::path::Path;
 
 use axum::extract::{DefaultBodyLimit, Multipart, Query, State};
-use axum::routing::{get, post};
+use axum::http::StatusCode;
+use axum::routing::{get, post, put};
 use axum::{Json, Router};
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
@@ -51,9 +52,13 @@ const MAX_UPLOAD_SIZE: usize = 50 * 1024 * 1024; // 50 MB
 pub fn router(upload_dir: &str) -> Router<AppState> {
     Router::new()
         .route("/api/media/upload", post(upload))
+        .route("/api/media/{id}/file", put(replace_file))
         .route_layer(DefaultBodyLimit::max(MAX_UPLOAD_SIZE))
         .route("/api/media", get(list_media))
-        .route("/api/media/{id}", get(get_media))
+        .route(
+            "/api/media/{id}",
+            get(get_media).patch(update_media).delete(delete_media),
+        )
         .nest_service("/api/files", ServeDir::new(upload_dir))
 }
 
@@ -186,6 +191,141 @@ async fn get_media(
         .ok_or_else(|| AppError::NotFound("Media not found".into()))?;
 
     Ok(Json(media.into_response()))
+}
+
+#[derive(Debug, Deserialize)]
+struct UpdateMediaRequest {
+    name: Option<String>,
+    description: Option<String>,
+}
+
+async fn update_media(
+    State(state): State<AppState>,
+    _auth: AuthUser,
+    axum::extract::Path(id): axum::extract::Path<Uuid>,
+    Json(body): Json<UpdateMediaRequest>,
+) -> Result<Json<MediaResponse>, AppError> {
+    let name = body.name.filter(|s| !s.trim().is_empty());
+    let description = body.description.filter(|s| !s.trim().is_empty());
+
+    let media = sqlx::query_as::<_, Media>(
+        "UPDATE media SET name = $1, description = $2, updated_at = NOW()
+         WHERE id = $3 RETURNING *",
+    )
+    .bind(&name)
+    .bind(&description)
+    .bind(id)
+    .fetch_optional(&state.db)
+    .await?
+    .ok_or_else(|| AppError::NotFound("Media not found".into()))?;
+
+    Ok(Json(media.into_response()))
+}
+
+async fn replace_file(
+    State(state): State<AppState>,
+    _auth: AuthUser,
+    axum::extract::Path(id): axum::extract::Path<Uuid>,
+    mut multipart: Multipart,
+) -> Result<Json<MediaResponse>, AppError> {
+    let mut file_data: Option<(String, Vec<u8>)> = None;
+
+    while let Some(field) = multipart
+        .next_field()
+        .await
+        .map_err(|e| AppError::BadRequest(format!("Invalid multipart data: {e}")))?
+    {
+        if field.name() == Some("file") {
+            let mime = field
+                .content_type()
+                .ok_or_else(|| AppError::BadRequest("File missing content type".into()))?
+                .to_string();
+
+            if !ALLOWED_MIME_TYPES.contains(&mime.as_str()) {
+                return Err(AppError::BadRequest(format!(
+                    "Unsupported file type: {mime}"
+                )));
+            }
+
+            let bytes = field
+                .bytes()
+                .await
+                .map_err(|e| AppError::BadRequest(format!("Failed to read file: {e}")))?;
+
+            file_data = Some((mime, bytes.to_vec()));
+        }
+    }
+
+    let (mime, bytes) =
+        file_data.ok_or_else(|| AppError::BadRequest("No file provided".into()))?;
+
+    // Get existing media to find old file path
+    let old_media = sqlx::query_as::<_, Media>("SELECT * FROM media WHERE id = $1")
+        .bind(id)
+        .fetch_optional(&state.db)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Media not found".into()))?;
+
+    let media_type = media_type_from_mime(&mime)
+        .ok_or_else(|| AppError::BadRequest("Unknown media type".into()))?;
+
+    let ext = extension_from_mime(&mime);
+    let file_name = format!("{}.{ext}", Uuid::new_v4());
+
+    let upload_dir = &state.config.upload_dir;
+    let file_path = Path::new(upload_dir).join(&file_name);
+    let file_size = bytes.len() as i64;
+
+    tokio::fs::write(&file_path, &bytes)
+        .await
+        .map_err(|e| AppError::Internal(format!("Failed to write file: {e}")))?;
+
+    let (width, height) = if media_type != MediaType::Video {
+        extract_image_dimensions(&bytes)
+            .map(|(w, h)| (Some(w), Some(h)))
+            .unwrap_or((None, None))
+    } else {
+        (None, None)
+    };
+
+    // Delete old file from disk (best-effort)
+    let old_path = Path::new(upload_dir).join(&old_media.file_path);
+    let _ = tokio::fs::remove_file(&old_path).await;
+
+    let media = sqlx::query_as::<_, Media>(
+        "UPDATE media SET file_path = $1, file_size = $2, mime_type = $3, media_type = $4,
+         width = $5, height = $6, updated_at = NOW()
+         WHERE id = $7 RETURNING *",
+    )
+    .bind(&file_name)
+    .bind(file_size)
+    .bind(&mime)
+    .bind(&media_type)
+    .bind(width)
+    .bind(height)
+    .bind(id)
+    .fetch_one(&state.db)
+    .await?;
+
+    Ok(Json(media.into_response()))
+}
+
+async fn delete_media(
+    State(state): State<AppState>,
+    _auth: AuthUser,
+    axum::extract::Path(id): axum::extract::Path<Uuid>,
+) -> Result<StatusCode, AppError> {
+    let media = sqlx::query_as::<_, Media>("DELETE FROM media WHERE id = $1 RETURNING *")
+        .bind(id)
+        .fetch_optional(&state.db)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Media not found".into()))?;
+
+    // Delete file from disk (best-effort)
+    let file_path = Path::new(&state.config.upload_dir).join(&media.file_path);
+    let _ = tokio::fs::remove_file(&file_path).await;
+
+    Ok(StatusCode::NO_CONTENT)
 }
 
 #[derive(Debug, Deserialize)]

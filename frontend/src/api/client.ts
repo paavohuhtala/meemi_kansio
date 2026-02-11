@@ -9,9 +9,9 @@ export class ApiError extends Error {
   }
 }
 
-export async function apiFetchFormData<T>(path: string, body: FormData): Promise<T> {
+export async function apiFetchFormData<T>(path: string, body: FormData, method: 'POST' | 'PUT' = 'POST'): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
-    method: 'POST',
+    method,
     credentials: 'include',
     body,
   });

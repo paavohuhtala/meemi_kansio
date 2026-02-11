@@ -9,6 +9,7 @@ export const theme = {
     primary: '#6366f1',
     primaryHover: '#818cf8',
     error: '#ef4444',
+    errorHover: '#dc2626',
     success: '#22c55e',
   },
   spacing: {

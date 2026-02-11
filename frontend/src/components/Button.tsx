@@ -2,7 +2,7 @@ import { forwardRef, type ButtonHTMLAttributes } from 'react';
 import { Slot } from 'radix-ui';
 import styled, { css } from 'styled-components';
 
-type ButtonVariant = 'primary' | 'ghost';
+type ButtonVariant = 'primary' | 'ghost' | 'danger';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
@@ -26,23 +26,32 @@ const StyledButton = styled.button<{ $variant: ButtonVariant; $loading: boolean 
     cursor: not-allowed;
   }
 
-  ${({ $variant, theme }) =>
-    $variant === 'primary'
-      ? css`
-          background: ${theme.colors.primary};
-          color: white;
-          &:hover:not(:disabled) {
-            background: ${theme.colors.primaryHover};
-          }
-        `
-      : css`
-          background: none;
-          color: ${theme.colors.textSecondary};
-          padding: 0;
-          &:hover:not(:disabled) {
-            color: ${theme.colors.text};
-          }
-        `}
+  ${({ $variant, theme }) => {
+    if ($variant === 'primary')
+      return css`
+        background: ${theme.colors.primary};
+        color: white;
+        &:hover:not(:disabled) {
+          background: ${theme.colors.primaryHover};
+        }
+      `;
+    if ($variant === 'danger')
+      return css`
+        background: ${theme.colors.error};
+        color: white;
+        &:hover:not(:disabled) {
+          background: ${theme.colors.errorHover};
+        }
+      `;
+    return css`
+      background: none;
+      color: ${theme.colors.textSecondary};
+      padding: 0;
+      &:hover:not(:disabled) {
+        color: ${theme.colors.text};
+      }
+    `;
+  }}
 
   ${({ $loading }) =>
     $loading &&
