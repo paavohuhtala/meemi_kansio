@@ -5,6 +5,8 @@ pub struct Config {
     pub host: String,
     pub port: u16,
     pub upload_dir: String,
+    pub jwt_secret: String,
+    pub static_dir: Option<String>,
 }
 
 impl Config {
@@ -18,6 +20,9 @@ impl Config {
                 .and_then(|p| p.parse().ok())
                 .unwrap_or(3000),
             upload_dir: env::var("UPLOAD_DIR").unwrap_or_else(|_| "./uploads".to_string()),
+            jwt_secret: env::var("JWT_SECRET")
+                .unwrap_or_else(|_| "dev-secret-change-in-production".to_string()),
+            static_dir: env::var("STATIC_DIR").ok(),
         }
     }
 }

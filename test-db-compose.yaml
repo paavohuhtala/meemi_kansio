@@ -1,0 +1,12 @@
+services:
+  test_db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: meemi
+      POSTGRES_PASSWORD: meemi
+      POSTGRES_DB: meemi
+      TZ: 'UTC'
+    ports:
+      - 127.0.0.1:5499:5432
+    tmpfs:
+      - /var/lib/postgresql/data

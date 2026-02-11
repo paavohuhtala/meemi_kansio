@@ -14,3 +14,7 @@ frontend/dist/
 
 # Data
 uploads/
+
+# Playwright
+test-results/
+playwright-report/
