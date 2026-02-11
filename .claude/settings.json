@@ -4,7 +4,9 @@
       "Bash(pnpm test:e2e)",
       "Bash(pnpm install:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(cargo build:*)",
+      "Bash(SKIP_BUILD=1 pnpm test:e2e:*)"
     ]
   }
 }

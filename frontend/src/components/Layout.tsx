@@ -30,6 +30,15 @@ const Logo = styled(Link)`
   }
 `;
 
+const NavLink = styled(Link)`
+  color: ${({ theme }) => theme.colors.textSecondary};
+  font-size: ${({ theme }) => theme.fontSize.sm};
+
+  &:hover {
+    color: ${({ theme }) => theme.colors.text};
+  }
+`;
+
 const Spacer = styled.div`
   margin-left: auto;
 `;
@@ -58,6 +67,7 @@ export function Layout() {
     <>
       <Nav>
         <Logo to="/">meemi</Logo>
+        <NavLink to="/upload">Upload</NavLink>
         <Spacer />
         <DropdownMenuRoot>
           <DropdownMenuTrigger asChild>

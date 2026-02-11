@@ -1,10 +1,15 @@
-import type { Page } from '@playwright/test';
+import type { Page, Locator } from '@playwright/test';
 
 export class NavBar {
-  constructor(private readonly page: Page) {}
+  private readonly page: Page;
+  readonly adminItem: Locator;
+  readonly logoutItem: Locator;
 
-  public readonly adminItem = this.page.getByRole('menuitem', { name: 'Admin' });
-  public readonly logoutItem = this.page.getByRole('menuitem', { name: 'Log out' });
+  constructor(page: Page) {
+    this.page = page;
+    this.adminItem = page.getByRole('menuitem', { name: 'Admin' });
+    this.logoutItem = page.getByRole('menuitem', { name: 'Log out' });
+  }
 
   menuButton(username: string) {
     return this.page.getByRole('button', { name: new RegExp(username) });

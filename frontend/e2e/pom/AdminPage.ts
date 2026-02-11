@@ -1,11 +1,15 @@
-import { expect, type Page } from '@playwright/test';
+import { expect, type Page, type Locator } from '@playwright/test';
 
 export class AdminPage {
-  constructor(private readonly page: Page) {}
+  readonly heading: Locator;
+  readonly newInviteButton: Locator;
+  readonly inviteCode: Locator;
 
-  public readonly heading = this.page.getByRole('heading', { name: 'Admin' });
-  public readonly newInviteButton = this.page.getByRole('button', { name: 'New invite' });
-  public readonly inviteCode = this.page.locator('code').first();
+  constructor(page: Page) {
+    this.heading = page.getByRole('heading', { name: 'Admin' });
+    this.newInviteButton = page.getByRole('button', { name: 'New invite' });
+    this.inviteCode = page.locator('code').first();
+  }
 
   async createInvite(): Promise<string> {
     await this.newInviteButton.click();

@@ -1,6 +1,8 @@
 import { execSync, spawn, type ChildProcess } from 'node:child_process';
 import { createServer } from 'node:http';
-import { resolve } from 'node:path';
+import { mkdtempSync } from 'node:fs';
+import { resolve, join } from 'node:path';
+import { tmpdir } from 'node:os';
 import pg from 'pg';
 
 import {
@@ -163,6 +165,7 @@ function spawnBackend(index: number): ChildProcess {
   const dbUrl = `${BASE_DB_URL}/${TEMPLATE_DB}_${index}`;
   const staticDir = resolve(FRONTEND_DIR, 'dist');
   const binaryPath = resolve(BACKEND_DIR, 'target/debug/meemi-backend');
+  const uploadDir = mkdtempSync(join(tmpdir(), `meemi-e2e-uploads-${index}-`));
 
   const child = spawn(binaryPath, [], {
     env: {
@@ -171,6 +174,7 @@ function spawnBackend(index: number): ChildProcess {
       PORT: String(port),
       HOST: '0.0.0.0',
       STATIC_DIR: staticDir,
+      UPLOAD_DIR: uploadDir,
       RUST_LOG: 'info',
     },
     stdio: ['ignore', 'pipe', 'pipe'],

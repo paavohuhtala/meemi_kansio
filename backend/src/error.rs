@@ -48,6 +48,10 @@ impl IntoResponse for AppError {
             }
         };
 
+        if status.is_client_error() {
+            tracing::warn!(status = status.as_u16(), "{message}");
+        }
+
         (status, Json(json!({ "error": message }))).into_response()
     }
 }

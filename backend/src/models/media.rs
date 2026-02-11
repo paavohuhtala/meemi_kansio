@@ -1,0 +1,59 @@
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use sqlx::FromRow;
+use uuid::Uuid;
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
+#[sqlx(type_name = "media_type", rename_all = "lowercase")]
+#[serde(rename_all = "lowercase")]
+pub enum MediaType {
+    Image,
+    Video,
+    Gif,
+}
+
+#[derive(Debug, Clone, FromRow)]
+pub struct Media {
+    pub id: Uuid,
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub media_type: MediaType,
+    pub file_path: String,
+    pub file_size: i64,
+    pub mime_type: String,
+    pub source_url: Option<String>,
+    pub thumbnail_path: Option<String>,
+    pub uploaded_by: Uuid,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct MediaResponse {
+    pub id: Uuid,
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub media_type: MediaType,
+    pub file_url: String,
+    pub file_size: i64,
+    pub mime_type: String,
+    pub uploaded_by: Uuid,
+    pub created_at: DateTime<Utc>,
+}
+
+impl Media {
+    pub fn into_response(self) -> MediaResponse {
+        let file_url = format!("/api/files/{}", self.file_path);
+        MediaResponse {
+            id: self.id,
+            name: self.name,
+            description: self.description,
+            media_type: self.media_type,
+            file_url,
+            file_size: self.file_size,
+            mime_type: self.mime_type,
+            uploaded_by: self.uploaded_by,
+            created_at: self.created_at,
+        }
+    }
+}

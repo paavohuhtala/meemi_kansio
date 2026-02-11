@@ -1,12 +1,19 @@
-import type { Page } from '@playwright/test';
+import type { Page, Locator } from '@playwright/test';
 
 export class RegisterPage {
-  constructor(private readonly page: Page) {}
+  private readonly page: Page;
+  readonly usernameInput: Locator;
+  readonly passwordInput: Locator;
+  readonly inviteCodeInput: Locator;
+  readonly submitButton: Locator;
 
-  public readonly usernameInput = this.page.getByPlaceholder('Username');
-  public readonly passwordInput = this.page.getByPlaceholder('Password');
-  public readonly inviteCodeInput = this.page.getByPlaceholder('Invite code');
-  public readonly submitButton = this.page.getByRole('button', { name: 'Create account' });
+  constructor(page: Page) {
+    this.page = page;
+    this.usernameInput = page.getByPlaceholder('Username');
+    this.passwordInput = page.getByPlaceholder('Password');
+    this.inviteCodeInput = page.getByPlaceholder('Invite code');
+    this.submitButton = page.getByRole('button', { name: 'Create account' });
+  }
 
   async goto() {
     await this.page.goto('/register');

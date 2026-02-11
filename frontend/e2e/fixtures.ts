@@ -4,12 +4,16 @@ import { RegisterPage } from './pom/RegisterPage.ts';
 import { LoginPage } from './pom/LoginPage.ts';
 import { NavBar } from './pom/NavBar.ts';
 import { AdminPage } from './pom/AdminPage.ts';
+import { UploadPage } from './pom/UploadPage.ts';
+import { MediaPage } from './pom/MediaPage.ts';
 
 interface E2EFixtures {
   registerPage: RegisterPage;
   loginPage: LoginPage;
   navBar: NavBar;
   adminPage: AdminPage;
+  uploadPage: UploadPage;
+  mediaPage: MediaPage;
 }
 
 export const e2eTest = test.extend<E2EFixtures>({
@@ -32,6 +36,12 @@ export const e2eTest = test.extend<E2EFixtures>({
   },
   adminPage: async ({ page }, use) => {
     await use(new AdminPage(page));
+  },
+  uploadPage: async ({ page }, use) => {
+    await use(new UploadPage(page));
+  },
+  mediaPage: async ({ page }, use) => {
+    await use(new MediaPage(page));
   },
 });
 

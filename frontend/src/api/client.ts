@@ -9,6 +9,21 @@ export class ApiError extends Error {
   }
 }
 
+export async function apiFetchFormData<T>(path: string, body: FormData): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: 'POST',
+    credentials: 'include',
+    body,
+  });
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new ApiError(res.status, data.error || `${res.status} ${res.statusText}`);
+  }
+
+  return res.json();
+}
+
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     ...init,
