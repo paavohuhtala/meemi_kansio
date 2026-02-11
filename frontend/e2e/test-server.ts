@@ -203,7 +203,7 @@ async function waitForBackend(port: number, timeout = 30000): Promise<void> {
 
 // --- Health check + reset API server ---
 
-function startOrchestrator(admin: pg.Client): Promise<void> {
+function startOrchestrator(_admin: pg.Client): Promise<void> {
   return new Promise((resolve) => {
     const server = createServer(async (req, res) => {
       if (req.method === 'GET' && req.url === '/') {
