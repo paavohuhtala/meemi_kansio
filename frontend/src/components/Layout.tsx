@@ -66,7 +66,7 @@ export function Layout() {
   return (
     <>
       <Nav>
-        <Logo to="/">meemi</Logo>
+        <Logo to="/">meemi_kansio</Logo>
         <NavLink to="/upload">Upload</NavLink>
         <Spacer />
         <DropdownMenuRoot>

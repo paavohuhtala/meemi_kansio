@@ -72,7 +72,7 @@ export function LoginPage() {
   return (
     <Wrapper>
       <Card>
-        <Title>meemi</Title>
+        <Title>meemi_kansio</Title>
         <Form onSubmit={handleSubmit}>
           <Input
             type="text"
