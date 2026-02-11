@@ -1,106 +1,70 @@
 import { e2eTest, expect } from '../fixtures.ts';
 
-async function openUserMenu(page: import('@playwright/test').Page, username: string) {
-  await page.getByRole('button', { name: new RegExp(username) }).click();
-}
-
-e2eTest('register first user as admin and see home page', async ({ page }) => {
-  await page.goto('/register');
-
-  await page.getByPlaceholder('Username').fill('testadmin');
-  await page.getByPlaceholder('Password').fill('password123');
-  await page.getByRole('button', { name: 'Create account' }).click();
+e2eTest('register first user as admin and see home page', async ({ page, registerPage, navBar }) => {
+  await registerPage.register('testadmin', 'password123');
 
   // Should redirect to home
   await expect(page).toHaveURL('/');
   // Username should appear in the nav
   await expect(page.getByText('testadmin')).toBeVisible();
   // Admin menu item should be available (first user is admin)
-  await openUserMenu(page, 'testadmin');
-  await expect(page.getByRole('menuitem', { name: 'Admin' })).toBeVisible();
+  await navBar.openMenu('testadmin');
+  await expect(navBar.adminItem).toBeVisible();
 });
 
-e2eTest('login with existing user', async ({ page }) => {
+e2eTest('login with existing user', async ({ page, registerPage, loginPage, navBar }) => {
   // First, register a user
-  await page.goto('/register');
-  await page.getByPlaceholder('Username').fill('loginuser');
-  await page.getByPlaceholder('Password').fill('password123');
-  await page.getByRole('button', { name: 'Create account' }).click();
+  await registerPage.register('loginuser', 'password123');
   await expect(page).toHaveURL('/');
 
   // Log out via user menu
-  await openUserMenu(page, 'loginuser');
-  await page.getByRole('menuitem', { name: 'Log out' }).click();
+  await navBar.logout('loginuser');
   await expect(page).toHaveURL('/login');
 
   // Log back in
-  await page.getByPlaceholder('Username').fill('loginuser');
-  await page.getByPlaceholder('Password').fill('password123');
-  await page.getByRole('button', { name: 'Log in' }).click();
+  await loginPage.login('loginuser', 'password123');
 
   await expect(page).toHaveURL('/');
   await expect(page.getByText('loginuser')).toBeVisible();
 });
 
-e2eTest('admin can create invite and second user registers with it', async ({ page }) => {
+e2eTest('admin can create invite and second user registers with it', async ({ page, registerPage, navBar, adminPage }) => {
   // Register first user (admin)
-  await page.goto('/register');
-  await page.getByPlaceholder('Username').fill('admin');
-  await page.getByPlaceholder('Password').fill('password123');
-  await page.getByRole('button', { name: 'Create account' }).click();
+  await registerPage.register('admin', 'password123');
   await expect(page).toHaveURL('/');
 
   // Go to admin page via user menu
-  await openUserMenu(page, 'admin');
-  await page.getByRole('menuitem', { name: 'Admin' }).click();
-  await expect(page.getByRole('heading', { name: 'Admin' })).toBeVisible();
+  await navBar.goToAdmin('admin');
+  await expect(adminPage.heading).toBeVisible();
 
-  await page.getByRole('button', { name: 'New invite' }).click();
-
-  // Wait for the invite to appear in the table
-  const codeCell = page.locator('code').first();
-  await expect(codeCell).toBeVisible();
-  const inviteCode = await codeCell.textContent();
-  expect(inviteCode).toBeTruthy();
+  const inviteCode = await adminPage.createInvite();
 
   // Log out via user menu
-  await openUserMenu(page, 'admin');
-  await page.getByRole('menuitem', { name: 'Log out' }).click();
+  await navBar.logout('admin');
   await expect(page).toHaveURL('/login');
 
   // Register second user with invite code
-  await page.goto('/register');
-  await page.getByPlaceholder('Invite code').fill(inviteCode!);
-  await page.getByPlaceholder('Username').fill('member');
-  await page.getByPlaceholder('Password').fill('password123');
-  await page.getByRole('button', { name: 'Create account' }).click();
+  await registerPage.register('member', 'password123', inviteCode);
 
   // Should land on home page
   await expect(page).toHaveURL('/');
   await expect(page.getByText('member')).toBeVisible();
 
   // Admin menu item should NOT be available for non-admin users
-  await openUserMenu(page, 'member');
-  await expect(page.getByRole('menuitem', { name: 'Admin' })).not.toBeVisible();
+  await navBar.openMenu('member');
+  await expect(navBar.adminItem).not.toBeVisible();
 });
 
-e2eTest('register without invite code fails when users exist', async ({ page }) => {
+e2eTest('register without invite code fails when users exist', async ({ page, registerPage, navBar }) => {
   // Register first user
-  await page.goto('/register');
-  await page.getByPlaceholder('Username').fill('firstuser');
-  await page.getByPlaceholder('Password').fill('password123');
-  await page.getByRole('button', { name: 'Create account' }).click();
+  await registerPage.register('firstuser', 'password123');
   await expect(page).toHaveURL('/');
 
   // Log out via user menu
-  await openUserMenu(page, 'firstuser');
-  await page.getByRole('menuitem', { name: 'Log out' }).click();
+  await navBar.logout('firstuser');
 
   // Try to register without invite code
-  await page.goto('/register');
-  await page.getByPlaceholder('Username').fill('seconduser');
-  await page.getByPlaceholder('Password').fill('password123');
-  await page.getByRole('button', { name: 'Create account' }).click();
+  await registerPage.register('seconduser', 'password123');
 
   // Should show error
   await expect(page.getByText('Invite code required')).toBeVisible();
