@@ -6,6 +6,7 @@ import { NavBar } from './pom/NavBar.ts';
 import { AdminPage } from './pom/AdminPage.ts';
 import { UploadPage } from './pom/UploadPage.ts';
 import { MediaPage } from './pom/MediaPage.ts';
+import { BrowsePage } from './pom/BrowsePage.ts';
 
 interface E2EFixtures {
   registerPage: RegisterPage;
@@ -14,6 +15,7 @@ interface E2EFixtures {
   adminPage: AdminPage;
   uploadPage: UploadPage;
   mediaPage: MediaPage;
+  browsePage: BrowsePage;
 }
 
 export const e2eTest = test.extend<E2EFixtures>({
@@ -42,6 +44,9 @@ export const e2eTest = test.extend<E2EFixtures>({
   },
   mediaPage: async ({ page }, use) => {
     await use(new MediaPage(page));
+  },
+  browsePage: async ({ page }, use) => {
+    await use(new BrowsePage(page));
   },
 });
 

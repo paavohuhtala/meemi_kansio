@@ -1,0 +1,2 @@
+ALTER TABLE media DROP COLUMN width;
+ALTER TABLE media DROP COLUMN height;

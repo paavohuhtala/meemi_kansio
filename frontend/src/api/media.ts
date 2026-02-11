@@ -8,8 +8,15 @@ export interface MediaItem {
   file_url: string;
   file_size: number;
   mime_type: string;
+  width: number | null;
+  height: number | null;
   uploaded_by: string;
   created_at: string;
+}
+
+export interface MediaPage {
+  items: MediaItem[];
+  next_cursor: string | null;
 }
 
 export function uploadMedia(file: File, name?: string, description?: string) {
@@ -22,4 +29,11 @@ export function uploadMedia(file: File, name?: string, description?: string) {
 
 export function getMedia(id: string) {
   return apiFetch<MediaItem>(`/media/${id}`);
+}
+
+export function listMedia(cursor?: string) {
+  const params = new URLSearchParams();
+  if (cursor) params.set('cursor', cursor);
+  const qs = params.toString();
+  return apiFetch<MediaPage>(`/media${qs ? `?${qs}` : ''}`);
 }

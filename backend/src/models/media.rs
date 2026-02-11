@@ -21,6 +21,8 @@ pub struct Media {
     pub file_path: String,
     pub file_size: i64,
     pub mime_type: String,
+    pub width: Option<i32>,
+    pub height: Option<i32>,
     pub source_url: Option<String>,
     pub thumbnail_path: Option<String>,
     pub uploaded_by: Uuid,
@@ -37,8 +39,16 @@ pub struct MediaResponse {
     pub file_url: String,
     pub file_size: i64,
     pub mime_type: String,
+    pub width: Option<i32>,
+    pub height: Option<i32>,
     pub uploaded_by: Uuid,
     pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct MediaListResponse {
+    pub items: Vec<MediaResponse>,
+    pub next_cursor: Option<DateTime<Utc>>,
 }
 
 impl Media {
@@ -52,6 +62,8 @@ impl Media {
             file_url,
             file_size: self.file_size,
             mime_type: self.mime_type,
+            width: self.width,
+            height: self.height,
             uploaded_by: self.uploaded_by,
             created_at: self.created_at,
         }

@@ -1,14 +1,17 @@
+use std::io::Cursor;
 use std::path::Path;
 
-use axum::extract::{DefaultBodyLimit, Multipart, State};
+use axum::extract::{DefaultBodyLimit, Multipart, Query, State};
 use axum::routing::{get, post};
 use axum::{Json, Router};
+use chrono::{DateTime, Utc};
+use serde::Deserialize;
 use tower_http::services::ServeDir;
 use uuid::Uuid;
 
 use crate::auth::middleware::AuthUser;
 use crate::error::AppError;
-use crate::models::media::{Media, MediaResponse, MediaType};
+use crate::models::media::{Media, MediaListResponse, MediaResponse, MediaType};
 use crate::AppState;
 
 const ALLOWED_MIME_TYPES: &[&str] = &[
@@ -49,8 +52,17 @@ pub fn router(upload_dir: &str) -> Router<AppState> {
     Router::new()
         .route("/api/media/upload", post(upload))
         .route_layer(DefaultBodyLimit::max(MAX_UPLOAD_SIZE))
+        .route("/api/media", get(list_media))
         .route("/api/media/{id}", get(get_media))
         .nest_service("/api/files", ServeDir::new(upload_dir))
+}
+
+fn extract_image_dimensions(bytes: &[u8]) -> Option<(i32, i32)> {
+    let reader = image::ImageReader::new(Cursor::new(bytes))
+        .with_guessed_format()
+        .ok()?;
+    let (w, h) = reader.into_dimensions().ok()?;
+    Some((w as i32, h as i32))
 }
 
 async fn upload(
@@ -129,13 +141,22 @@ async fn upload(
         .await
         .map_err(|e| AppError::Internal(format!("Failed to write file: {e}")))?;
 
+    // Extract image dimensions (skip for videos)
+    let (width, height) = if media_type != MediaType::Video {
+        extract_image_dimensions(&bytes)
+            .map(|(w, h)| (Some(w), Some(h)))
+            .unwrap_or((None, None))
+    } else {
+        (None, None)
+    };
+
     // Filter empty strings to None
     let name = name.filter(|s| !s.trim().is_empty());
     let description = description.filter(|s| !s.trim().is_empty());
 
     let media = sqlx::query_as::<_, Media>(
-        "INSERT INTO media (name, description, media_type, file_path, file_size, mime_type, uploaded_by)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
+        "INSERT INTO media (name, description, media_type, file_path, file_size, mime_type, width, height, uploaded_by)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          RETURNING *",
     )
     .bind(&name)
@@ -144,6 +165,8 @@ async fn upload(
     .bind(&file_name)
     .bind(file_size)
     .bind(&mime)
+    .bind(width)
+    .bind(height)
     .bind(auth.user_id)
     .fetch_one(&state.db)
     .await?;
@@ -163,4 +186,50 @@ async fn get_media(
         .ok_or_else(|| AppError::NotFound("Media not found".into()))?;
 
     Ok(Json(media.into_response()))
+}
+
+#[derive(Debug, Deserialize)]
+struct ListMediaParams {
+    cursor: Option<DateTime<Utc>>,
+    limit: Option<i64>,
+}
+
+async fn list_media(
+    State(state): State<AppState>,
+    _auth: AuthUser,
+    Query(params): Query<ListMediaParams>,
+) -> Result<Json<MediaListResponse>, AppError> {
+    let limit = params.limit.unwrap_or(20).min(50);
+
+    let rows = if let Some(cursor) = params.cursor {
+        sqlx::query_as::<_, Media>(
+            "SELECT * FROM media WHERE created_at < $1 ORDER BY created_at DESC LIMIT $2",
+        )
+        .bind(cursor)
+        .bind(limit + 1)
+        .fetch_all(&state.db)
+        .await?
+    } else {
+        sqlx::query_as::<_, Media>("SELECT * FROM media ORDER BY created_at DESC LIMIT $1")
+            .bind(limit + 1)
+            .fetch_all(&state.db)
+            .await?
+    };
+
+    let has_more = rows.len() as i64 > limit;
+    let items: Vec<_> = rows
+        .into_iter()
+        .take(limit as usize)
+        .collect::<Vec<_>>();
+
+    let next_cursor = if has_more {
+        items.last().map(|m| m.created_at)
+    } else {
+        None
+    };
+
+    Ok(Json(MediaListResponse {
+        items: items.into_iter().map(|m| m.into_response()).collect(),
+        next_cursor,
+    }))
 }
