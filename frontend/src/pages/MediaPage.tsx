@@ -98,6 +98,23 @@ const TitleInput = styled.input`
 const Description = styled.p`
   color: ${({ theme }) => theme.colors.textSecondary};
   margin-bottom: ${({ theme }) => theme.spacing.md};
+  cursor: pointer;
+
+  &:hover {
+    color: ${({ theme }) => theme.colors.primaryHover};
+  }
+`;
+
+const DescriptionTextarea = styled.textarea`
+  all: unset;
+  font-size: ${({ theme }) => theme.fontSize.md};
+  color: ${({ theme }) => theme.colors.text};
+  border-bottom: 2px solid ${({ theme }) => theme.colors.primary};
+  padding-bottom: 2px;
+  width: 100%;
+  min-height: 60px;
+  margin-bottom: ${({ theme }) => theme.spacing.md};
+  resize: vertical;
 `;
 
 const Meta = styled.p`
@@ -154,6 +171,7 @@ export function MediaPage() {
   const [editDescription, setEditDescription] = useState('');
   const [editTags, setEditTags] = useState<string[]>([]);
   const [editingTitle, setEditingTitle] = useState(false);
+  const [editingDescription, setEditingDescription] = useState(false);
 
   const { data: media, isLoading, error } = useQuery({
     queryKey: ['media', id],
@@ -240,6 +258,28 @@ export function MediaPage() {
       saveTitle();
     } else if (e.key === 'Escape') {
       setEditingTitle(false);
+    }
+  }
+
+  function handleDescriptionClick() {
+    setEditDescription(media!.description ?? '');
+    setEditingDescription(true);
+  }
+
+  function saveDescription() {
+    setEditingDescription(false);
+    const trimmed = editDescription.trim();
+    if (trimmed !== (media!.description ?? '')) {
+      metaMutation.mutate({ description: trimmed });
+    }
+  }
+
+  function handleDescriptionKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      saveDescription();
+    } else if (e.key === 'Escape') {
+      setEditingDescription(false);
     }
   }
 
@@ -370,8 +410,21 @@ export function MediaPage() {
         )}
       </ContentGrid>
 
-      {!editing && media.description && (
-        <Description>{media.description}</Description>
+      {!editing && (
+        editingDescription ? (
+          <DescriptionTextarea
+            value={editDescription}
+            onChange={(e) => setEditDescription(e.target.value)}
+            onKeyDown={handleDescriptionKeyDown}
+            onBlur={saveDescription}
+            autoFocus
+            data-testid="edit-description"
+          />
+        ) : (
+          <Description onClick={handleDescriptionClick} data-testid="description">
+            {media.description || <Placeholder>Click to add a description</Placeholder>}
+          </Description>
+        )
       )}
 
       <Meta>
