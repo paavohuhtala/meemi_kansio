@@ -9,7 +9,7 @@ e2eTest.beforeEach(async ({ page, registerPage }) => {
 });
 
 e2eTest('edit name and description', async ({ page, uploadPage, mediaPage }) => {
-  await uploadPage.upload('sokerivarasto.jpg', { name: 'Original Name', description: 'Original Desc' });
+  await uploadPage.upload('sokerivarasto.jpg');
   await page.waitForURL(/\/media\//);
 
   await mediaPage.editMetadata('Updated Name', 'Updated Desc');
@@ -19,8 +19,11 @@ e2eTest('edit name and description', async ({ page, uploadPage, mediaPage }) => 
 });
 
 e2eTest('editing title preserves description and vice versa', async ({ page, uploadPage, mediaPage }) => {
-  await uploadPage.upload('sokerivarasto.jpg', { name: 'My Title', description: 'My Description' });
+  await uploadPage.upload('sokerivarasto.jpg');
   await page.waitForURL(/\/media\//);
+
+  // Set initial title and description
+  await mediaPage.editMetadata('My Title', 'My Description');
 
   // Edit title only
   await mediaPage.editTitle('New Title');
@@ -34,7 +37,7 @@ e2eTest('editing title preserves description and vice versa', async ({ page, upl
 });
 
 e2eTest('replace file changes the image', async ({ page, uploadPage, mediaPage }) => {
-  await uploadPage.upload('sokerivarasto.jpg', { name: 'Replace Test' });
+  await uploadPage.upload('sokerivarasto.jpg');
   await page.waitForURL(/\/media\//);
 
   const originalSrc = await mediaPage.image.getAttribute('src');
@@ -45,18 +48,18 @@ e2eTest('replace file changes the image', async ({ page, uploadPage, mediaPage }
 });
 
 e2eTest('delete cancel keeps media', async ({ page, uploadPage, mediaPage }) => {
-  await uploadPage.upload('sokerivarasto.jpg', { name: 'Do Not Delete' });
+  await uploadPage.upload('sokerivarasto.jpg');
   await page.waitForURL(/\/media\//);
 
   await mediaPage.deleteButton.click();
   await mediaPage.deleteCancel.click();
 
-  await expect(mediaPage.title).toHaveText('Do Not Delete');
+  await expect(mediaPage.title).toHaveText('sokerivarasto');
   await expect(page).toHaveURL(/\/media\//);
 });
 
 e2eTest('delete with confirmation redirects to home', async ({ page, uploadPage, mediaPage }) => {
-  await uploadPage.upload('sokerivarasto.jpg', { name: 'Delete Me' });
+  await uploadPage.upload('sokerivarasto.jpg');
   await page.waitForURL(/\/media\//);
 
   await mediaPage.deleteWithConfirmation();
@@ -70,7 +73,7 @@ e2eTest('deleted media disappears from browse', async ({
   mediaPage,
   browsePage,
 }) => {
-  await uploadPage.upload('sokerivarasto.jpg', { name: 'Will Be Deleted' });
+  await uploadPage.upload('sokerivarasto.jpg');
   await page.waitForURL(/\/media\//);
 
   await mediaPage.deleteWithConfirmation();

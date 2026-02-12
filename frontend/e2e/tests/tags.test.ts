@@ -6,16 +6,15 @@ e2eTest.describe('tagging', () => {
     await page.waitForURL('/');
   });
 
-  e2eTest('upload with tags shows them on detail page', async ({
+  e2eTest('add tags on detail page', async ({
     page,
     uploadPage,
     mediaPage,
   }) => {
-    await uploadPage.upload('sokerivarasto.jpg', {
-      name: 'Tagged Upload',
-      tags: ['funny', 'classic'],
-    });
+    await uploadPage.upload('sokerivarasto.jpg');
     await page.waitForURL(/\/media\//);
+
+    await mediaPage.editTags({ add: ['funny', 'classic'] });
 
     await expect(mediaPage.tagEditor).toBeVisible();
     const chips = mediaPage.tagChips;
@@ -25,12 +24,10 @@ e2eTest.describe('tagging', () => {
   });
 
   e2eTest('edit tags on detail page', async ({ page, uploadPage, mediaPage }) => {
-    await uploadPage.upload('sokerivarasto.jpg', {
-      name: 'Edit Tags',
-      tags: ['original'],
-    });
+    await uploadPage.upload('sokerivarasto.jpg');
     await page.waitForURL(/\/media\//);
 
+    await mediaPage.editTags({ add: ['original'] });
     await mediaPage.editTags({ remove: ['original'], add: ['updated', 'new-tag'] });
 
     await expect(mediaPage.tagChips).toHaveCount(2);
@@ -39,11 +36,10 @@ e2eTest.describe('tagging', () => {
   });
 
   e2eTest('cancel tag edit reverts changes', async ({ page, uploadPage, mediaPage }) => {
-    await uploadPage.upload('sokerivarasto.jpg', {
-      name: 'Cancel Test',
-      tags: ['keep-me'],
-    });
+    await uploadPage.upload('sokerivarasto.jpg');
     await page.waitForURL(/\/media\//);
+
+    await mediaPage.editTags({ add: ['keep-me'] });
 
     await mediaPage.removeTag('keep-me');
     await expect(mediaPage.removedTagChips).toHaveCount(1);
@@ -58,7 +54,7 @@ e2eTest.describe('tagging', () => {
     uploadPage,
     mediaPage,
   }) => {
-    await uploadPage.upload('sokerivarasto.jpg', { name: 'No Tags' });
+    await uploadPage.upload('sokerivarasto.jpg');
     await page.waitForURL(/\/media\//);
 
     await expect(mediaPage.tagChips).toHaveCount(0);
@@ -67,26 +63,22 @@ e2eTest.describe('tagging', () => {
 });
 
 e2eTest.describe('tag filtering', () => {
-  e2eTest.beforeEach(async ({ page, registerPage, uploadPage }) => {
+  e2eTest.beforeEach(async ({ page, registerPage, uploadPage, mediaPage }) => {
     await registerPage.register('filterer', 'password123');
     await page.waitForURL('/');
 
-    // Upload media with different tags
-    await uploadPage.upload('sokerivarasto.jpg', {
-      name: 'Cat Meme',
-      tags: ['cats', 'funny'],
-    });
+    // Upload media and add tags on detail page
+    await uploadPage.upload('sokerivarasto.jpg');
     await page.waitForURL(/\/media\//);
+    await mediaPage.editTags({ add: ['cats', 'funny'] });
+    await expect(mediaPage.saveTagsButton).not.toBeVisible();
 
-    await uploadPage.upload('markus.png', {
-      name: 'Dog Meme',
-      tags: ['dogs', 'funny'],
-    });
+    await uploadPage.upload('markus.png');
     await page.waitForURL(/\/media\//);
+    await mediaPage.editTags({ add: ['dogs', 'funny'] });
+    await expect(mediaPage.saveTagsButton).not.toBeVisible();
 
-    await uploadPage.upload('questionable_ethics.gif', {
-      name: 'Untagged Gif',
-    });
+    await uploadPage.upload('questionable_ethics.gif');
     await page.waitForURL(/\/media\//);
   });
 

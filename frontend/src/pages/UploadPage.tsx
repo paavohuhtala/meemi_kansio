@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import styled from 'styled-components';
 import { uploadMedia } from '../api/media';
-import { Button, DropZone, Input, Label, TagInput } from '../components';
+import { Button, DropZone } from '../components';
 
 const Container = styled.div`
   max-width: 600px;
@@ -22,33 +22,6 @@ const Form = styled.form`
   gap: ${({ theme }) => theme.spacing.md};
 `;
 
-const Field = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${({ theme }) => theme.spacing.xs};
-`;
-
-const Textarea = styled.textarea`
-  background: ${({ theme }) => theme.colors.bg};
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: ${({ theme }) => theme.borderRadius.md};
-  color: ${({ theme }) => theme.colors.text};
-  font-size: ${({ theme }) => theme.fontSize.md};
-  font-family: inherit;
-  padding: ${({ theme }) => theme.spacing.sm} ${({ theme }) => theme.spacing.md};
-  resize: vertical;
-  min-height: 80px;
-
-  &:focus {
-    outline: none;
-    border-color: ${({ theme }) => theme.colors.primary};
-  }
-
-  &::placeholder {
-    color: ${({ theme }) => theme.colors.textSecondary};
-  }
-`;
-
 const ErrorText = styled.p`
   color: ${({ theme }) => theme.colors.error};
   font-size: ${({ theme }) => theme.fontSize.sm};
@@ -64,6 +37,12 @@ const ACCEPTED_TYPES = [
   'video/quicktime',
 ];
 
+function nameFromFile(file: File): string {
+  const name = file.name;
+  const dot = name.lastIndexOf('.');
+  return dot > 0 ? name.slice(0, dot) : name;
+}
+
 export function UploadPage() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -71,12 +50,9 @@ export function UploadPage() {
     const stateFile = (location.state as { file?: File } | null)?.file;
     return stateFile instanceof File ? stateFile : null;
   });
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [tags, setTags] = useState<string[]>([]);
 
   const mutation = useMutation({
-    mutationFn: () => uploadMedia(file!, name, description, tags),
+    mutationFn: () => uploadMedia(file!, nameFromFile(file!)),
     onSuccess: (media) => navigate(`/media/${media.id}`),
   });
 
@@ -89,32 +65,7 @@ export function UploadPage() {
     <Container>
       <Heading>Upload</Heading>
       <Form onSubmit={handleSubmit}>
-        <Field>
-          <Label>File</Label>
-          <DropZone value={file} onChange={setFile} accept={ACCEPTED_TYPES} />
-        </Field>
-        <Field>
-          <Label htmlFor="name">Name (optional)</Label>
-          <Input
-            id="name"
-            placeholder="Give it a name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-        </Field>
-        <Field>
-          <Label htmlFor="description">Description (optional)</Label>
-          <Textarea
-            id="description"
-            placeholder="Add a description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
-        </Field>
-        <Field>
-          <Label>Tags (optional)</Label>
-          <TagInput tags={tags} onChange={setTags} placeholder="Add tags" />
-        </Field>
+        <DropZone value={file} onChange={setFile} accept={ACCEPTED_TYPES} />
         {mutation.error && <ErrorText>{mutation.error.message}</ErrorText>}
         <Button type="submit" disabled={!file} loading={mutation.isPending}>
           {mutation.isPending ? 'Uploading...' : 'Upload'}

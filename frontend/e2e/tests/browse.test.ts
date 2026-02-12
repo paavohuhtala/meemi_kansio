@@ -13,9 +13,9 @@ e2eTest('empty state shows message with upload link', async ({ browsePage }) => 
 });
 
 e2eTest('uploaded items appear in the grid', async ({ page, uploadPage, browsePage }) => {
-  await uploadPage.upload('sokerivarasto.jpg', { name: 'Sokerivarasto' });
+  await uploadPage.upload('sokerivarasto.jpg');
   await page.waitForURL(/\/media\//);
-  await uploadPage.upload('markus.png', { name: 'Markus' });
+  await uploadPage.upload('markus.png');
   await page.waitForURL(/\/media\//);
 
   await browsePage.goto();
@@ -29,7 +29,7 @@ e2eTest('clicking a grid item navigates to detail page', async ({
   uploadPage,
   browsePage,
 }) => {
-  await uploadPage.upload('sokerivarasto.jpg', { name: 'Sokerivarasto' });
+  await uploadPage.upload('sokerivarasto.jpg');
   await page.waitForURL(/\/media\//);
 
   await browsePage.goto();

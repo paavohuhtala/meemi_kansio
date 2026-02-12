@@ -8,7 +8,7 @@ e2eTest.describe('media overlay', () => {
 
   e2eTest.describe('image', () => {
     e2eTest.beforeEach(async ({ page, uploadPage }) => {
-      await uploadPage.upload('sokerivarasto.jpg', { name: 'Test Image' });
+      await uploadPage.upload('sokerivarasto.jpg');
       await page.waitForURL(/\/media\//);
     });
 
@@ -33,7 +33,7 @@ e2eTest.describe('media overlay', () => {
       await mediaPage.downloadButton.click();
       const download = await downloadPromise;
 
-      expect(download.suggestedFilename()).toMatch(/^Test Image\./);
+      expect(download.suggestedFilename()).toMatch(/^sokerivarasto\./);
 
     });
 

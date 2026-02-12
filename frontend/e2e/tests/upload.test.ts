@@ -8,16 +8,12 @@ e2eTest.beforeEach(async ({ page, registerPage }) => {
   await page.waitForURL('/');
 });
 
-e2eTest('upload JPG with name and description', async ({ page, uploadPage, mediaPage }) => {
-  await uploadPage.upload('sokerivarasto.jpg', {
-    name: 'Sokerivarasto',
-    description: 'A classic meme',
-  });
+e2eTest('upload JPG', async ({ page, uploadPage, mediaPage }) => {
+  await uploadPage.upload('sokerivarasto.jpg');
 
   await expect(page).toHaveURL(/\/media\//);
   await expect(mediaPage.image).toBeVisible();
-  await expect(mediaPage.title).toHaveText('Sokerivarasto');
-  await expect(page.getByText('A classic meme')).toBeVisible();
+  await expect(mediaPage.title).toHaveText('sokerivarasto');
   await expect(mediaPage.meta).toBeVisible();
 });
 
