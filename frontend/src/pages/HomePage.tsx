@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import styled from 'styled-components';
 import { listMedia, type MediaItem } from '../api/media';
-import { MediaOverlay } from '../components';
+import { Media, MediaOverlay } from '../components';
 import { media as bp } from '../styles/theme';
 
 const Container = styled.div`
@@ -121,6 +121,7 @@ function aspectRatio(item: MediaItem): string | undefined {
   return undefined;
 }
 
+
 export function HomePage() {
   const sentinelRef = useRef<HTMLDivElement>(null);
 
@@ -170,15 +171,7 @@ export function HomePage() {
         {items.map((item) => (
           <Card key={item.id} to={`/media/${item.id}`}>
             <CardMedia $ratio={aspectRatio(item)}>
-              {item.media_type === 'video' ? (
-                <video src={item.file_url} preload="metadata" />
-              ) : (
-                <img
-                  src={item.file_url}
-                  alt={item.name ?? ''}
-                  loading="lazy"
-                />
-              )}
+              <Media item={item} loading="lazy" preload="metadata" />
             </CardMedia>
             {item.media_type === 'video' && <PlayIcon />}
             <MediaOverlay

@@ -10,6 +10,7 @@ export {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from './DropdownMenu';
+export { Media } from './Media';
 export { MediaOverlay } from './MediaOverlay';
 export {
   AlertDialogRoot,

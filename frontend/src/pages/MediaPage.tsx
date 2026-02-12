@@ -6,6 +6,7 @@ import { deleteMedia, getMedia, replaceMediaFile, updateMedia } from '../api/med
 import {
   Button,
   Input,
+  Media,
   MediaOverlay,
   AlertDialogRoot,
   AlertDialogTrigger,
@@ -125,8 +126,6 @@ export function MediaPage() {
   if (error) return <Container>Failed to load media.</Container>;
   if (!media) return <Container>Not found.</Container>;
 
-  const isVideo = media.media_type === 'video';
-
   function startEditing() {
     setEditName(media!.name ?? '');
     setEditDescription(media!.description ?? '');
@@ -155,11 +154,7 @@ export function MediaPage() {
   return (
     <Container>
       <MediaWrapper>
-        {isVideo ? (
-          <video src={media.file_url} controls />
-        ) : (
-          <img src={media.file_url} alt={media.name ?? 'Uploaded media'} />
-        )}
+        <Media item={media} alt={media.name ?? 'Uploaded media'} controls />
         <MediaOverlay
           fileUrl={media.file_url}
           fileName={media.name ?? `media-${media.id}`}
