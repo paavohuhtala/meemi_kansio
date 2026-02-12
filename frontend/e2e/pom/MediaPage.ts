@@ -20,6 +20,9 @@ export class MediaPage {
   readonly deleteConfirm: Locator;
   readonly deleteCancel: Locator;
 
+  readonly copyButton: Locator;
+  readonly downloadButton: Locator;
+
   constructor(page: Page) {
     this.page = page;
     this.image = page.locator('img[src*="/api/files/"]');
@@ -39,6 +42,9 @@ export class MediaPage {
     this.deleteButton = page.getByTestId('delete-button');
     this.deleteConfirm = page.getByTestId('delete-confirm');
     this.deleteCancel = page.getByTestId('delete-cancel');
+
+    this.copyButton = page.getByTitle('Copy to clipboard');
+    this.downloadButton = page.getByTitle('Download');
   }
 
   async editMetadata(name: string, description: string) {

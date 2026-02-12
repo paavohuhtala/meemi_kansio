@@ -26,4 +26,12 @@ export class BrowsePage {
   gridVideos() {
     return this.grid.locator('video');
   }
+
+  cardCopyButton(index: number) {
+    return this.gridItems.nth(index).getByTitle('Copy to clipboard');
+  }
+
+  cardDownloadButton(index: number) {
+    return this.gridItems.nth(index).getByTitle('Download');
+  }
 }
