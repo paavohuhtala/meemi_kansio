@@ -74,6 +74,25 @@ const Title = styled.h1`
   font-size: ${({ theme }) => theme.fontSize.xl};
   margin-bottom: 0;
   overflow-wrap: anywhere;
+  cursor: pointer;
+
+  &:hover {
+    color: ${({ theme }) => theme.colors.primaryHover};
+  }
+`;
+
+const Placeholder = styled.span`
+  color: ${({ theme }) => theme.colors.textSecondary};
+`;
+
+const TitleInput = styled.input`
+  all: unset;
+  font-size: ${({ theme }) => theme.fontSize.xl};
+  font-weight: bold;
+  color: ${({ theme }) => theme.colors.text};
+  border-bottom: 2px solid ${({ theme }) => theme.colors.primary};
+  padding-bottom: 2px;
+  width: 100%;
 `;
 
 const Description = styled.p`
@@ -134,6 +153,7 @@ export function MediaPage() {
   const [editName, setEditName] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [editTags, setEditTags] = useState<string[]>([]);
+  const [editingTitle, setEditingTitle] = useState(false);
 
   const { data: media, isLoading, error } = useQuery({
     queryKey: ['media', id],
@@ -150,6 +170,15 @@ export function MediaPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['media', id] });
       setEditing(false);
+    },
+  });
+
+  const metaMutation = useMutation({
+    mutationFn: (data: { name?: string; description?: string }) =>
+      updateMedia(id!, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['media', id] });
+      queryClient.invalidateQueries({ queryKey: ['media-list'] });
     },
   });
 
@@ -192,6 +221,28 @@ export function MediaPage() {
     setEditing(false);
   }
 
+  function handleTitleClick() {
+    setEditName(media!.name ?? '');
+    setEditingTitle(true);
+  }
+
+  function saveTitle() {
+    setEditingTitle(false);
+    const trimmed = editName.trim();
+    if (trimmed !== (media!.name ?? '')) {
+      metaMutation.mutate({ name: trimmed });
+    }
+  }
+
+  function handleTitleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      saveTitle();
+    } else if (e.key === 'Escape') {
+      setEditingTitle(false);
+    }
+  }
+
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (file) {
@@ -203,36 +254,19 @@ export function MediaPage() {
   return (
     <Container>
       <Header>
-        {editing ? (
-          <EditForm>
-            <Input
-              value={editName}
-              onChange={(e) => setEditName(e.target.value)}
-              placeholder="Name"
-              data-testid="edit-name"
-            />
-            <Input
-              value={editDescription}
-              onChange={(e) => setEditDescription(e.target.value)}
-              placeholder="Description"
-              data-testid="edit-description"
-            />
-            <TagInput tags={editTags} onChange={setEditTags} placeholder="Add tags" />
-            <EditActions>
-              <Button
-                onClick={handleSave}
-                loading={updateMutation.isPending}
-                data-testid="save-edit"
-              >
-                Save
-              </Button>
-              <Button variant="ghost" onClick={handleCancel}>
-                Cancel
-              </Button>
-            </EditActions>
-          </EditForm>
+        {editingTitle ? (
+          <TitleInput
+            value={editName}
+            onChange={(e) => setEditName(e.target.value)}
+            onKeyDown={handleTitleKeyDown}
+            onBlur={saveTitle}
+            autoFocus
+            data-testid="edit-name"
+          />
         ) : (
-          <Title>{media.name || 'Untitled'}</Title>
+          <Title onClick={handleTitleClick}>
+            {media.name || <Placeholder>Unnamed meme</Placeholder>}
+          </Title>
         )}
         <HeaderActions>
           {!editing && (
@@ -287,6 +321,34 @@ export function MediaPage() {
           </AlertDialogRoot>
         </HeaderActions>
       </Header>
+
+      {editing && (
+        <EditForm>
+          <Input
+            value={editName}
+            onChange={(e) => setEditName(e.target.value)}
+            placeholder="Name"
+          />
+          <Input
+            value={editDescription}
+            onChange={(e) => setEditDescription(e.target.value)}
+            placeholder="Description"
+          />
+          <TagInput tags={editTags} onChange={setEditTags} placeholder="Add tags" />
+          <EditActions>
+            <Button
+              onClick={handleSave}
+              loading={updateMutation.isPending}
+              data-testid="save-edit"
+            >
+              Save
+            </Button>
+            <Button variant="ghost" onClick={handleCancel}>
+              Cancel
+            </Button>
+          </EditActions>
+        </EditForm>
+      )}
 
       <ContentGrid>
         <MediaWrapper>
