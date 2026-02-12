@@ -12,7 +12,7 @@ export class BrowsePage {
   constructor(page: Page) {
     this.page = page;
     this.grid = page.locator('[data-testid="media-grid"]');
-    this.gridItems = page.locator('[data-testid="media-grid"] a');
+    this.gridItems = page.locator('[data-testid="media-grid"] a[href^="/media/"]');
     this.emptyState = page.getByText('No uploads yet');
     this.uploadLink = page.getByRole('link', { name: 'Upload something' });
     this.tagFilterInput = page.getByTestId('tag-input-field');

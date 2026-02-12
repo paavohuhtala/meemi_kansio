@@ -33,7 +33,7 @@ const Chip = styled.span`
   background: ${({ theme }) => theme.colors.surface};
   border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: ${({ theme }) => theme.borderRadius.sm};
-  padding: 2px ${({ theme }) => theme.spacing.xs};
+  padding: 2px ${({ theme }) => theme.spacing.sm};
   font-size: ${({ theme }) => theme.fontSize.sm};
   color: ${({ theme }) => theme.colors.text};
 `;

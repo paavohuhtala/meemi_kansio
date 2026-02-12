@@ -69,13 +69,14 @@ const CardTags = styled.div`
   padding: ${({ theme }) => theme.spacing.xs} ${({ theme }) => theme.spacing.sm};
 `;
 
-const CardTag = styled.span`
+const CardTag = styled(Link)<{ $active?: boolean }>`
   font-size: 0.75rem;
   color: ${({ theme }) => theme.colors.textSecondary};
+  text-decoration: none;
   background: ${({ theme }) => theme.colors.bg};
   border-radius: ${({ theme }) => theme.borderRadius.sm};
-  padding: 1px ${({ theme }) => theme.spacing.xs};
-  cursor: pointer;
+  padding: 1px ${({ theme }) => theme.spacing.sm};
+  border: 1px solid ${({ theme, $active }) => $active ? theme.colors.primary : 'transparent'};
 
   &:hover {
     color: ${({ theme }) => theme.colors.text};
@@ -175,10 +176,9 @@ export function HomePage() {
     [searchParams, setSearchParams],
   );
 
-  function addFilterTag(tag: string) {
-    if (!filterTags.includes(tag)) {
-      setFilterTags([...filterTags, tag]);
-    }
+  function tagFilterUrl(tag: string): string {
+    const tags = filterTags.includes(tag) ? filterTags : [...filterTags, tag];
+    return `/?tags=${tags.join(',')}`;
   }
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } =
@@ -256,10 +256,11 @@ export function HomePage() {
                 {item.tags.map((tag) => (
                   <CardTag
                     key={tag}
-                    onClick={() => addFilterTag(tag)}
+                    to={tagFilterUrl(tag)}
+                    $active={filterTags.includes(tag)}
                     data-testid="card-tag"
                   >
-                    {tag}
+                    {filterTags.length > 0 && !filterTags.includes(tag) ? `+${tag}` : tag}
                   </CardTag>
                 ))}
               </CardTags>
