@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import styled from 'styled-components';
 import { deleteMedia, getMedia, replaceMediaFile, setMediaTags, updateMedia } from '../api/media';
@@ -126,27 +126,7 @@ const HiddenInput = styled.input`
   display: none;
 `;
 
-const TagList = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  gap: ${({ theme }) => theme.spacing.xs};
-`;
-
-const TagChip = styled(Link)`
-  display: inline-block;
-  background: ${({ theme }) => theme.colors.surface};
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: ${({ theme }) => theme.borderRadius.sm};
-  padding: 2px ${({ theme }) => theme.spacing.sm};
-  font-size: ${({ theme }) => theme.fontSize.sm};
-  color: ${({ theme }) => theme.colors.textSecondary};
-  text-decoration: none;
-
-  &:hover {
-    color: ${({ theme }) => theme.colors.text};
-    border-color: ${({ theme }) => theme.colors.primary};
-  }
-`;
+const TagPanel = styled.div``;
 
 const EditForm = styled.div`
   display: flex;
@@ -169,7 +149,6 @@ export function MediaPage() {
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState('');
   const [editDescription, setEditDescription] = useState('');
-  const [editTags, setEditTags] = useState<string[]>([]);
   const [editingTitle, setEditingTitle] = useState(false);
   const [editingDescription, setEditingDescription] = useState(false);
 
@@ -200,6 +179,14 @@ export function MediaPage() {
     },
   });
 
+  const tagMutation = useMutation({
+    mutationFn: (tags: string[]) => setMediaTags(id!, tags),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['media', id] });
+      queryClient.invalidateQueries({ queryKey: ['media-list'] });
+    },
+  });
+
   const replaceMutation = useMutation({
     mutationFn: (file: File) => replaceMediaFile(id!, file),
     onSuccess: () => {
@@ -223,7 +210,6 @@ export function MediaPage() {
   function startEditing() {
     setEditName(media!.name ?? '');
     setEditDescription(media!.description ?? '');
-    setEditTags([...media!.tags]);
     setEditing(true);
   }
 
@@ -231,7 +217,7 @@ export function MediaPage() {
     updateMutation.mutate({
       name: editName,
       description: editDescription,
-      tags: editTags,
+      tags: media!.tags,
     });
   }
 
@@ -374,7 +360,6 @@ export function MediaPage() {
             onChange={(e) => setEditDescription(e.target.value)}
             placeholder="Description"
           />
-          <TagInput tags={editTags} onChange={setEditTags} placeholder="Add tags" />
           <EditActions>
             <Button
               onClick={handleSave}
@@ -399,14 +384,14 @@ export function MediaPage() {
             mediaType={media.media_type}
           />
         </MediaWrapper>
-        {!editing && media.tags.length > 0 && (
-          <TagList data-testid="tag-list">
-            {media.tags.map((tag) => (
-              <TagChip key={tag} to={`/?tags=${encodeURIComponent(tag)}`}>
-                {tag}
-              </TagChip>
-            ))}
-          </TagList>
+        {!editing && (
+          <TagPanel data-testid="tag-list">
+            <TagInput
+              tags={media.tags}
+              onChange={(tags) => tagMutation.mutate(tags)}
+              placeholder="Click to add tags"
+            />
+          </TagPanel>
         )}
       </ContentGrid>
 
