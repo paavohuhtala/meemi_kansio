@@ -6,6 +6,7 @@ import { deleteMedia, getMedia, replaceMediaFile, updateMedia } from '../api/med
 import {
   Button,
   Input,
+  MediaOverlay,
   AlertDialogRoot,
   AlertDialogTrigger,
   AlertDialogPortal,
@@ -25,10 +26,15 @@ const Container = styled.div`
 `;
 
 const MediaWrapper = styled.div`
+  position: relative;
   margin-bottom: ${({ theme }) => theme.spacing.lg};
   border-radius: ${({ theme }) => theme.borderRadius.md};
   overflow: hidden;
   background: ${({ theme }) => theme.colors.surface};
+
+  &:hover [data-overlay] {
+    opacity: 1;
+  }
 
   img, video {
     display: block;
@@ -154,6 +160,11 @@ export function MediaPage() {
         ) : (
           <img src={media.file_url} alt={media.name ?? 'Uploaded media'} />
         )}
+        <MediaOverlay
+          fileUrl={media.file_url}
+          fileName={media.name ?? `media-${media.id}`}
+          mediaType={media.media_type}
+        />
       </MediaWrapper>
 
       {editing ? (

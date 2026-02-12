@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import styled from 'styled-components';
 import { listMedia, type MediaItem } from '../api/media';
+import { MediaOverlay } from '../components';
 import { media as bp } from '../styles/theme';
 
 const Container = styled.div`
@@ -180,6 +181,11 @@ export function HomePage() {
               )}
             </CardMedia>
             {item.media_type === 'video' && <PlayIcon />}
+            <MediaOverlay
+              fileUrl={item.file_url}
+              fileName={item.name ?? `media-${item.id}`}
+              mediaType={item.media_type}
+            />
             {item.name && <NameOverlay data-overlay>{item.name}</NameOverlay>}
           </Card>
         ))}
