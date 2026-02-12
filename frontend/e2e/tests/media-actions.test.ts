@@ -18,6 +18,21 @@ e2eTest('edit name and description', async ({ page, uploadPage, mediaPage }) => 
   await expect(page.getByText('Updated Desc')).toBeVisible();
 });
 
+e2eTest('editing title preserves description and vice versa', async ({ page, uploadPage, mediaPage }) => {
+  await uploadPage.upload('sokerivarasto.jpg', { name: 'My Title', description: 'My Description' });
+  await page.waitForURL(/\/media\//);
+
+  // Edit title only
+  await mediaPage.editTitle('New Title');
+  await expect(mediaPage.title).toHaveText('New Title');
+  await expect(mediaPage.descriptionText).toHaveText('My Description');
+
+  // Edit description only
+  await mediaPage.editDescription('New Description');
+  await expect(page.getByText('New Description')).toBeVisible();
+  await expect(mediaPage.title).toHaveText('New Title');
+});
+
 e2eTest('replace file changes the image', async ({ page, uploadPage, mediaPage }) => {
   await uploadPage.upload('sokerivarasto.jpg', { name: 'Replace Test' });
   await page.waitForURL(/\/media\//);

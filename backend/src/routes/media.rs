@@ -329,14 +329,21 @@ async fn update_media(
     axum::extract::Path(id): axum::extract::Path<Uuid>,
     Json(body): Json<UpdateMediaRequest>,
 ) -> Result<Json<MediaResponse>, AppError> {
+    let has_name = body.name.is_some();
+    let has_description = body.description.is_some();
     let name = body.name.filter(|s| !s.trim().is_empty());
     let description = body.description.filter(|s| !s.trim().is_empty());
 
     let media = sqlx::query_as::<_, Media>(
-        "UPDATE media SET name = $1, description = $2, updated_at = NOW()
-         WHERE id = $3 RETURNING *",
+        "UPDATE media SET
+           name = CASE WHEN $1 THEN $2 ELSE name END,
+           description = CASE WHEN $3 THEN $4 ELSE description END,
+           updated_at = NOW()
+         WHERE id = $5 RETURNING *",
     )
+    .bind(has_name)
     .bind(&name)
+    .bind(has_description)
     .bind(&description)
     .bind(id)
     .fetch_optional(&state.db)
