@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { UploadIcon } from '@radix-ui/react-icons';
 import styled, { css } from 'styled-components';
 
@@ -101,18 +101,18 @@ function isVideoType(file: File): boolean {
 
 export function DropZone({ value, onChange, accept }: DropZoneProps) {
   const [dragOver, setDragOver] = useState(false);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (!value) {
-      setPreviewUrl(null);
-      return;
-    }
-    const url = URL.createObjectURL(value);
-    setPreviewUrl(url);
-    return () => URL.revokeObjectURL(url);
+  const previewUrl = useMemo(() => {
+    return value ? URL.createObjectURL(value) : null;
   }, [value]);
+
+  // Revoke object URL on change or unmount
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
 
   function handleFile(file: File) {
     if (isAcceptedType(file, accept)) {
