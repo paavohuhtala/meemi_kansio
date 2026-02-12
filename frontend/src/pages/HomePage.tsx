@@ -32,13 +32,16 @@ const Grid = styled.div`
   }
 `;
 
-const Card = styled(Link)`
-  display: block;
+const Card = styled.div`
   break-inside: avoid;
   margin-bottom: ${({ theme }) => theme.spacing.md};
   border-radius: ${({ theme }) => theme.borderRadius.md};
   overflow: hidden;
   background: ${({ theme }) => theme.colors.surface};
+`;
+
+const CardLink = styled(Link)`
+  display: block;
   position: relative;
 
   &:hover [data-overlay] {
@@ -81,22 +84,24 @@ const CardTag = styled.span`
 
 const NameOverlay = styled.div`
   position: absolute;
-  bottom: 0;
+  top: 0;
   left: 0;
   right: 0;
   padding: ${({ theme }) => theme.spacing.sm} ${({ theme }) => theme.spacing.md};
-  background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
+  padding-right: 80px;
+  background: linear-gradient(rgba(0, 0, 0, 0.7), transparent);
   color: #fff;
   font-size: ${({ theme }) => theme.fontSize.sm};
   opacity: 0;
   transition: opacity 0.15s;
   pointer-events: none;
+  overflow-wrap: anywhere;
 `;
 
 const PlayIcon = styled.div`
   position: absolute;
   top: ${({ theme }) => theme.spacing.sm};
-  right: ${({ theme }) => theme.spacing.sm};
+  left: ${({ theme }) => theme.spacing.sm};
   width: 28px;
   height: 28px;
   border-radius: 50%;
@@ -233,26 +238,25 @@ export function HomePage() {
       )}
       <Grid data-testid="media-grid">
         {items.map((item) => (
-          <Card key={item.id} to={`/media/${item.id}`}>
-            <CardMedia $ratio={aspectRatio(item)}>
-              <Media item={item} loading="lazy" preload="metadata" />
-            </CardMedia>
-            {item.media_type === 'video' && <PlayIcon />}
-            <MediaOverlay
-              fileUrl={item.file_url}
-              fileName={item.name ?? `media-${item.id}`}
-              mediaType={item.media_type}
-            />
+          <Card key={item.id}>
+            <CardLink to={`/media/${item.id}`}>
+              <CardMedia $ratio={aspectRatio(item)}>
+                <Media item={item} loading="lazy" preload="metadata" />
+              </CardMedia>
+              {item.media_type === 'video' && <PlayIcon />}
+              <MediaOverlay
+                fileUrl={item.file_url}
+                fileName={item.name ?? `media-${item.id}`}
+                mediaType={item.media_type}
+              />
+              {item.name && <NameOverlay data-overlay>{item.name}</NameOverlay>}
+            </CardLink>
             {item.tags.length > 0 && (
               <CardTags>
                 {item.tags.map((tag) => (
                   <CardTag
                     key={tag}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      addFilterTag(tag);
-                    }}
+                    onClick={() => addFilterTag(tag)}
                     data-testid="card-tag"
                   >
                     {tag}
@@ -260,7 +264,6 @@ export function HomePage() {
                 ))}
               </CardTags>
             )}
-            {item.name && <NameOverlay data-overlay>{item.name}</NameOverlay>}
           </Card>
         ))}
       </Grid>

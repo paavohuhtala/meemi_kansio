@@ -48,6 +48,7 @@ const MediaWrapper = styled.div`
 const Title = styled.h1`
   font-size: ${({ theme }) => theme.fontSize.xl};
   margin-bottom: ${({ theme }) => theme.spacing.sm};
+  overflow-wrap: anywhere;
 `;
 
 const Description = styled.p`
