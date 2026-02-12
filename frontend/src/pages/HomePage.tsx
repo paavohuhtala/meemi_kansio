@@ -1,13 +1,18 @@
-import { useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import styled from 'styled-components';
 import { listMedia, type MediaItem } from '../api/media';
-import { Media, MediaOverlay } from '../components';
+import { Media, MediaOverlay, TagInput } from '../components';
 import { media as bp } from '../styles/theme';
 
 const Container = styled.div`
   padding: ${({ theme }) => theme.spacing.lg};
+`;
+
+const FilterBar = styled.div`
+  max-width: 600px;
+  margin-bottom: ${({ theme }) => theme.spacing.lg};
 `;
 
 const Grid = styled.div`
@@ -54,6 +59,26 @@ const CardMedia = styled.div<{ $ratio?: string }>`
   }
 `;
 
+const CardTags = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: ${({ theme }) => theme.spacing.xs} ${({ theme }) => theme.spacing.sm};
+`;
+
+const CardTag = styled.span`
+  font-size: 0.75rem;
+  color: ${({ theme }) => theme.colors.textSecondary};
+  background: ${({ theme }) => theme.colors.bg};
+  border-radius: ${({ theme }) => theme.borderRadius.sm};
+  padding: 1px ${({ theme }) => theme.spacing.xs};
+  cursor: pointer;
+
+  &:hover {
+    color: ${({ theme }) => theme.colors.text};
+  }
+`;
+
 const NameOverlay = styled.div`
   position: absolute;
   bottom: 0;
@@ -65,6 +90,7 @@ const NameOverlay = styled.div`
   font-size: ${({ theme }) => theme.fontSize.sm};
   opacity: 0;
   transition: opacity 0.15s;
+  pointer-events: none;
 `;
 
 const PlayIcon = styled.div`
@@ -124,11 +150,37 @@ function aspectRatio(item: MediaItem): string | undefined {
 
 export function HomePage() {
   const sentinelRef = useRef<HTMLDivElement>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const filterTags = useMemo(() => {
+    const raw = searchParams.get('tags');
+    if (!raw) return [];
+    return raw.split(',').filter(Boolean);
+  }, [searchParams]);
+
+  const setFilterTags = useCallback(
+    (tags: string[]) => {
+      if (tags.length === 0) {
+        searchParams.delete('tags');
+      } else {
+        searchParams.set('tags', tags.join(','));
+      }
+      setSearchParams(searchParams, { replace: true });
+    },
+    [searchParams, setSearchParams],
+  );
+
+  function addFilterTag(tag: string) {
+    if (!filterTags.includes(tag)) {
+      setFilterTags([...filterTags, tag]);
+    }
+  }
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } =
     useInfiniteQuery({
-      queryKey: ['media-list'],
-      queryFn: ({ pageParam }) => listMedia(pageParam),
+      queryKey: ['media-list', { tags: filterTags }],
+      queryFn: ({ pageParam }) =>
+        listMedia(pageParam, filterTags.length > 0 ? filterTags : undefined),
       initialPageParam: undefined as string | undefined,
       getNextPageParam: (lastPage) => lastPage.next_cursor ?? undefined,
     });
@@ -154,7 +206,7 @@ export function HomePage() {
 
   const items = data?.pages.flatMap((p) => p.items) ?? [];
 
-  if (items.length === 0) {
+  if (items.length === 0 && filterTags.length === 0) {
     return (
       <EmptyState>
         <p>No uploads yet.</p>
@@ -167,6 +219,18 @@ export function HomePage() {
 
   return (
     <Container>
+      <FilterBar>
+        <TagInput
+          tags={filterTags}
+          onChange={setFilterTags}
+          placeholder="Filter by tags"
+        />
+      </FilterBar>
+      {items.length === 0 && filterTags.length > 0 && (
+        <EmptyState>
+          <p>No media matches the selected tags.</p>
+        </EmptyState>
+      )}
       <Grid data-testid="media-grid">
         {items.map((item) => (
           <Card key={item.id} to={`/media/${item.id}`}>
@@ -179,6 +243,23 @@ export function HomePage() {
               fileName={item.name ?? `media-${item.id}`}
               mediaType={item.media_type}
             />
+            {item.tags.length > 0 && (
+              <CardTags>
+                {item.tags.map((tag) => (
+                  <CardTag
+                    key={tag}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      addFilterTag(tag);
+                    }}
+                    data-testid="card-tag"
+                  >
+                    {tag}
+                  </CardTag>
+                ))}
+              </CardTags>
+            )}
             {item.name && <NameOverlay data-overlay>{item.name}</NameOverlay>}
           </Card>
         ))}

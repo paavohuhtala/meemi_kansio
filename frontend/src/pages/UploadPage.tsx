@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import styled from 'styled-components';
 import { uploadMedia } from '../api/media';
-import { Button, Input, Label } from '../components';
+import { Button, Input, Label, TagInput } from '../components';
 
 const Container = styled.div`
   max-width: 600px;
@@ -61,9 +61,10 @@ export function UploadPage() {
   const [file, setFile] = useState<File | null>(null);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [tags, setTags] = useState<string[]>([]);
 
   const mutation = useMutation({
-    mutationFn: () => uploadMedia(file!, name, description),
+    mutationFn: () => uploadMedia(file!, name, description, tags),
     onSuccess: (media) => navigate(`/media/${media.id}`),
   });
 
@@ -103,6 +104,10 @@ export function UploadPage() {
             value={description}
             onChange={(e) => setDescription(e.target.value)}
           />
+        </Field>
+        <Field>
+          <Label>Tags (optional)</Label>
+          <TagInput tags={tags} onChange={setTags} placeholder="Add tags" />
         </Field>
         {mutation.error && <ErrorText>{mutation.error.message}</ErrorText>}
         <Button type="submit" disabled={!file} loading={mutation.isPending}>

@@ -23,6 +23,9 @@ export class MediaPage {
   readonly copyButton: Locator;
   readonly downloadButton: Locator;
 
+  readonly tagList: Locator;
+  readonly tagChips: Locator;
+
   constructor(page: Page) {
     this.page = page;
     this.image = page.locator('img[src*="/api/files/"]');
@@ -45,6 +48,9 @@ export class MediaPage {
 
     this.copyButton = page.getByTitle('Copy to clipboard');
     this.downloadButton = page.getByTitle('Download');
+
+    this.tagList = page.getByTestId('tag-list');
+    this.tagChips = this.tagList.locator('a');
   }
 
   async editMetadata(name: string, description: string) {

@@ -12,6 +12,7 @@ export interface MediaItem {
   height: number | null;
   uploaded_by: string;
   created_at: string;
+  tags: string[];
 }
 
 export interface MediaPage {
@@ -19,11 +20,17 @@ export interface MediaPage {
   next_cursor: string | null;
 }
 
-export function uploadMedia(file: File, name?: string, description?: string) {
+export interface Tag {
+  id: string;
+  name: string;
+}
+
+export function uploadMedia(file: File, name?: string, description?: string, tags?: string[]) {
   const form = new FormData();
   form.append('file', file);
   if (name) form.append('name', name);
   if (description) form.append('description', description);
+  if (tags && tags.length > 0) form.append('tags', JSON.stringify(tags));
   return apiFetchFormData<MediaItem>('/media/upload', form);
 }
 
@@ -31,9 +38,10 @@ export function getMedia(id: string) {
   return apiFetch<MediaItem>(`/media/${id}`);
 }
 
-export function listMedia(cursor?: string) {
+export function listMedia(cursor?: string, tags?: string[]) {
   const params = new URLSearchParams();
   if (cursor) params.set('cursor', cursor);
+  if (tags && tags.length > 0) params.set('tags', tags.join(','));
   const qs = params.toString();
   return apiFetch<MediaPage>(`/media${qs ? `?${qs}` : ''}`);
 }
@@ -45,6 +53,13 @@ export function updateMedia(id: string, data: { name?: string; description?: str
   });
 }
 
+export function setMediaTags(id: string, tags: string[]) {
+  return apiFetch<MediaItem>(`/media/${id}/tags`, {
+    method: 'PUT',
+    body: JSON.stringify({ tags }),
+  });
+}
+
 export function replaceMediaFile(id: string, file: File) {
   const form = new FormData();
   form.append('file', file);
@@ -53,4 +68,11 @@ export function replaceMediaFile(id: string, file: File) {
 
 export function deleteMedia(id: string) {
   return apiFetch<void>(`/media/${id}`, { method: 'DELETE' });
+}
+
+export function searchTags(q: string) {
+  const params = new URLSearchParams();
+  if (q) params.set('q', q);
+  const qs = params.toString();
+  return apiFetch<{ tags: Tag[] }>(`/tags${qs ? `?${qs}` : ''}`);
 }

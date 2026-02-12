@@ -12,6 +12,7 @@ export {
 } from './DropdownMenu';
 export { Media } from './Media';
 export { MediaOverlay } from './MediaOverlay';
+export { TagInput } from './TagInput';
 export {
   AlertDialogRoot,
   AlertDialogTrigger,

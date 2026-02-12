@@ -1,13 +1,14 @@
 import { useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import styled from 'styled-components';
-import { deleteMedia, getMedia, replaceMediaFile, updateMedia } from '../api/media';
+import { deleteMedia, getMedia, replaceMediaFile, setMediaTags, updateMedia } from '../api/media';
 import {
   Button,
   Input,
   Media,
   MediaOverlay,
+  TagInput,
   AlertDialogRoot,
   AlertDialogTrigger,
   AlertDialogPortal,
@@ -81,6 +82,29 @@ const HiddenInput = styled.input`
   display: none;
 `;
 
+const TagList = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: ${({ theme }) => theme.spacing.xs};
+  margin-bottom: ${({ theme }) => theme.spacing.md};
+`;
+
+const TagChip = styled(Link)`
+  display: inline-block;
+  background: ${({ theme }) => theme.colors.surface};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: ${({ theme }) => theme.borderRadius.sm};
+  padding: 2px ${({ theme }) => theme.spacing.sm};
+  font-size: ${({ theme }) => theme.fontSize.sm};
+  color: ${({ theme }) => theme.colors.textSecondary};
+  text-decoration: none;
+
+  &:hover {
+    color: ${({ theme }) => theme.colors.text};
+    border-color: ${({ theme }) => theme.colors.primary};
+  }
+`;
+
 export function MediaPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -90,6 +114,7 @@ export function MediaPage() {
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState('');
   const [editDescription, setEditDescription] = useState('');
+  const [editTags, setEditTags] = useState<string[]>([]);
 
   const { data: media, isLoading, error } = useQuery({
     queryKey: ['media', id],
@@ -98,8 +123,11 @@ export function MediaPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (data: { name?: string; description?: string }) =>
-      updateMedia(id!, data),
+    mutationFn: async (data: { name?: string; description?: string; tags: string[] }) => {
+      const { tags, ...meta } = data;
+      await updateMedia(id!, meta);
+      await setMediaTags(id!, tags);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['media', id] });
       setEditing(false);
@@ -129,6 +157,7 @@ export function MediaPage() {
   function startEditing() {
     setEditName(media!.name ?? '');
     setEditDescription(media!.description ?? '');
+    setEditTags([...media!.tags]);
     setEditing(true);
   }
 
@@ -136,6 +165,7 @@ export function MediaPage() {
     updateMutation.mutate({
       name: editName,
       description: editDescription,
+      tags: editTags,
     });
   }
 
@@ -176,6 +206,7 @@ export function MediaPage() {
             placeholder="Description"
             data-testid="edit-description"
           />
+          <TagInput tags={editTags} onChange={setEditTags} placeholder="Add tags" />
           <EditActions>
             <Button
               onClick={handleSave}
@@ -193,6 +224,15 @@ export function MediaPage() {
         <>
           {media.name && <Title>{media.name}</Title>}
           {media.description && <Description>{media.description}</Description>}
+          {media.tags.length > 0 && (
+            <TagList data-testid="tag-list">
+              {media.tags.map((tag) => (
+                <TagChip key={tag} to={`/?tags=${encodeURIComponent(tag)}`}>
+                  {tag}
+                </TagChip>
+              ))}
+            </TagList>
+          )}
         </>
       )}
 

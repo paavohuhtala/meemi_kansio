@@ -43,6 +43,7 @@ pub struct MediaResponse {
     pub height: Option<i32>,
     pub uploaded_by: Uuid,
     pub created_at: DateTime<Utc>,
+    pub tags: Vec<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -52,7 +53,7 @@ pub struct MediaListResponse {
 }
 
 impl Media {
-    pub fn into_response(self) -> MediaResponse {
+    pub fn into_response(self, tags: Vec<String>) -> MediaResponse {
         let file_url = format!("/api/files/{}", self.file_path);
         MediaResponse {
             id: self.id,
@@ -66,6 +67,7 @@ impl Media {
             height: self.height,
             uploaded_by: self.uploaded_by,
             created_at: self.created_at,
+            tags,
         }
     }
 }

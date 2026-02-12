@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::io::Cursor;
 use std::path::Path;
 
@@ -7,6 +8,7 @@ use axum::routing::{get, post, put};
 use axum::{Json, Router};
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
+use sqlx::PgPool;
 use tower_http::services::ServeDir;
 use uuid::Uuid;
 
@@ -59,6 +61,7 @@ pub fn router(upload_dir: &str) -> Router<AppState> {
             "/api/media/{id}",
             get(get_media).patch(update_media).delete(delete_media),
         )
+        .route("/api/media/{id}/tags", put(set_tags))
         .nest_service("/api/files", ServeDir::new(upload_dir))
 }
 
@@ -70,6 +73,108 @@ fn extract_image_dimensions(bytes: &[u8]) -> Option<(i32, i32)> {
     Some((w as i32, h as i32))
 }
 
+// --- Tag helpers ---
+
+fn validate_tag(name: &str) -> Result<String, AppError> {
+    let normalized = name.trim().to_lowercase();
+    if normalized.is_empty() || normalized.chars().count() > 30 {
+        return Err(AppError::BadRequest(
+            "Tag must be 1-30 characters".into(),
+        ));
+    }
+    if normalized.chars().any(|c| c.is_whitespace()) {
+        return Err(AppError::BadRequest(
+            "Tags cannot contain whitespace".into(),
+        ));
+    }
+    Ok(normalized)
+}
+
+/// Insert tags by name (creating new ones as needed) and link them to a media item.
+/// Replaces any existing tags on the media.
+async fn link_tags(
+    pool: &PgPool,
+    media_id: Uuid,
+    tag_names: &[String],
+) -> Result<Vec<String>, AppError> {
+    // Delete existing associations
+    sqlx::query("DELETE FROM media_tags WHERE media_id = $1")
+        .bind(media_id)
+        .execute(pool)
+        .await?;
+
+    if tag_names.is_empty() {
+        return Ok(vec![]);
+    }
+
+    let mut linked: Vec<String> = Vec::with_capacity(tag_names.len());
+
+    for name in tag_names {
+        let tag_id: Uuid = sqlx::query_scalar(
+            "INSERT INTO tags (name) VALUES ($1)
+             ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
+             RETURNING id",
+        )
+        .bind(name)
+        .fetch_one(pool)
+        .await?;
+
+        sqlx::query("INSERT INTO media_tags (media_id, tag_id) VALUES ($1, $2) ON CONFLICT DO NOTHING")
+            .bind(media_id)
+            .bind(tag_id)
+            .execute(pool)
+            .await?;
+
+        linked.push(name.clone());
+    }
+
+    linked.sort();
+    Ok(linked)
+}
+
+/// Fetch tag names for a single media item.
+async fn fetch_tags(pool: &PgPool, media_id: Uuid) -> Result<Vec<String>, AppError> {
+    let tags: Vec<(String,)> = sqlx::query_as(
+        "SELECT t.name FROM tags t
+         JOIN media_tags mt ON mt.tag_id = t.id
+         WHERE mt.media_id = $1
+         ORDER BY t.name",
+    )
+    .bind(media_id)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(tags.into_iter().map(|(n,)| n).collect())
+}
+
+/// Batch-fetch tag names for multiple media items.
+async fn fetch_tags_batch(
+    pool: &PgPool,
+    media_ids: &[Uuid],
+) -> Result<HashMap<Uuid, Vec<String>>, AppError> {
+    if media_ids.is_empty() {
+        return Ok(HashMap::new());
+    }
+
+    let rows: Vec<(Uuid, String)> = sqlx::query_as(
+        "SELECT mt.media_id, t.name FROM tags t
+         JOIN media_tags mt ON mt.tag_id = t.id
+         WHERE mt.media_id = ANY($1)
+         ORDER BY t.name",
+    )
+    .bind(media_ids)
+    .fetch_all(pool)
+    .await?;
+
+    let mut map: HashMap<Uuid, Vec<String>> = HashMap::new();
+    for (media_id, name) in rows {
+        map.entry(media_id).or_default().push(name);
+    }
+    Ok(map)
+}
+
+// --- Handlers ---
+
 async fn upload(
     State(state): State<AppState>,
     auth: AuthUser,
@@ -78,6 +183,7 @@ async fn upload(
     let mut file_data: Option<(String, Vec<u8>)> = None;
     let mut name: Option<String> = None;
     let mut description: Option<String> = None;
+    let mut tags_json: Option<String> = None;
 
     while let Some(field) = multipart
         .next_field()
@@ -118,6 +224,13 @@ async fn upload(
                 description = Some(
                     field.text().await.map_err(|e| {
                         AppError::BadRequest(format!("Failed to read description: {e}"))
+                    })?,
+                );
+            }
+            "tags" => {
+                tags_json = Some(
+                    field.text().await.map_err(|e| {
+                        AppError::BadRequest(format!("Failed to read tags: {e}"))
                     })?,
                 );
             }
@@ -176,7 +289,17 @@ async fn upload(
     .fetch_one(&state.db)
     .await?;
 
-    Ok(Json(media.into_response()))
+    // Handle tags if provided
+    let tags = if let Some(json) = tags_json {
+        let raw_tags: Vec<String> = serde_json::from_str(&json)
+            .map_err(|e| AppError::BadRequest(format!("Invalid tags JSON: {e}")))?;
+        let validated: Vec<String> = raw_tags.iter().map(|t| validate_tag(t)).collect::<Result<_, _>>()?;
+        link_tags(&state.db, media.id, &validated).await?
+    } else {
+        vec![]
+    };
+
+    Ok(Json(media.into_response(tags)))
 }
 
 async fn get_media(
@@ -190,7 +313,8 @@ async fn get_media(
         .await?
         .ok_or_else(|| AppError::NotFound("Media not found".into()))?;
 
-    Ok(Json(media.into_response()))
+    let tags = fetch_tags(&state.db, media.id).await?;
+    Ok(Json(media.into_response(tags)))
 }
 
 #[derive(Debug, Deserialize)]
@@ -219,7 +343,8 @@ async fn update_media(
     .await?
     .ok_or_else(|| AppError::NotFound("Media not found".into()))?;
 
-    Ok(Json(media.into_response()))
+    let tags = fetch_tags(&state.db, media.id).await?;
+    Ok(Json(media.into_response(tags)))
 }
 
 async fn replace_file(
@@ -307,7 +432,8 @@ async fn replace_file(
     .fetch_one(&state.db)
     .await?;
 
-    Ok(Json(media.into_response()))
+    let tags = fetch_tags(&state.db, media.id).await?;
+    Ok(Json(media.into_response(tags)))
 }
 
 async fn delete_media(
@@ -329,9 +455,38 @@ async fn delete_media(
 }
 
 #[derive(Debug, Deserialize)]
+struct SetTagsRequest {
+    tags: Vec<String>,
+}
+
+async fn set_tags(
+    State(state): State<AppState>,
+    _auth: AuthUser,
+    axum::extract::Path(id): axum::extract::Path<Uuid>,
+    Json(body): Json<SetTagsRequest>,
+) -> Result<Json<MediaResponse>, AppError> {
+    // Verify media exists
+    let media = sqlx::query_as::<_, Media>("SELECT * FROM media WHERE id = $1")
+        .bind(id)
+        .fetch_optional(&state.db)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Media not found".into()))?;
+
+    let validated: Vec<String> = body
+        .tags
+        .iter()
+        .map(|t| validate_tag(t))
+        .collect::<Result<_, _>>()?;
+
+    let tags = link_tags(&state.db, media.id, &validated).await?;
+    Ok(Json(media.into_response(tags)))
+}
+
+#[derive(Debug, Deserialize)]
 struct ListMediaParams {
     cursor: Option<DateTime<Utc>>,
     limit: Option<i64>,
+    tags: Option<String>,
 }
 
 async fn list_media(
@@ -341,19 +496,70 @@ async fn list_media(
 ) -> Result<Json<MediaListResponse>, AppError> {
     let limit = params.limit.unwrap_or(20).min(50);
 
-    let rows = if let Some(cursor) = params.cursor {
-        sqlx::query_as::<_, Media>(
-            "SELECT * FROM media WHERE created_at < $1 ORDER BY created_at DESC LIMIT $2",
-        )
-        .bind(cursor)
-        .bind(limit + 1)
-        .fetch_all(&state.db)
-        .await?
-    } else {
-        sqlx::query_as::<_, Media>("SELECT * FROM media ORDER BY created_at DESC LIMIT $1")
+    // Parse tag filter
+    let tag_filter: Vec<String> = params
+        .tags
+        .map(|t| {
+            t.split(',')
+                .map(|s| s.trim().to_lowercase())
+                .filter(|s| !s.is_empty())
+                .collect()
+        })
+        .unwrap_or_default();
+
+    let rows = if tag_filter.is_empty() {
+        // No tag filter — existing behavior
+        if let Some(cursor) = params.cursor {
+            sqlx::query_as::<_, Media>(
+                "SELECT * FROM media WHERE created_at < $1 ORDER BY created_at DESC LIMIT $2",
+            )
+            .bind(cursor)
             .bind(limit + 1)
             .fetch_all(&state.db)
             .await?
+        } else {
+            sqlx::query_as::<_, Media>("SELECT * FROM media ORDER BY created_at DESC LIMIT $1")
+                .bind(limit + 1)
+                .fetch_all(&state.db)
+                .await?
+        }
+    } else {
+        // Filter by tags (AND logic)
+        let tag_count = tag_filter.len() as i64;
+        if let Some(cursor) = params.cursor {
+            sqlx::query_as::<_, Media>(
+                "SELECT m.* FROM media m
+                 JOIN media_tags mt ON mt.media_id = m.id
+                 JOIN tags t ON t.id = mt.tag_id
+                 WHERE t.name = ANY($1) AND m.created_at < $2
+                 GROUP BY m.id
+                 HAVING COUNT(DISTINCT t.name) = $3
+                 ORDER BY m.created_at DESC
+                 LIMIT $4",
+            )
+            .bind(&tag_filter)
+            .bind(cursor)
+            .bind(tag_count)
+            .bind(limit + 1)
+            .fetch_all(&state.db)
+            .await?
+        } else {
+            sqlx::query_as::<_, Media>(
+                "SELECT m.* FROM media m
+                 JOIN media_tags mt ON mt.media_id = m.id
+                 JOIN tags t ON t.id = mt.tag_id
+                 WHERE t.name = ANY($1)
+                 GROUP BY m.id
+                 HAVING COUNT(DISTINCT t.name) = $2
+                 ORDER BY m.created_at DESC
+                 LIMIT $3",
+            )
+            .bind(&tag_filter)
+            .bind(tag_count)
+            .bind(limit + 1)
+            .fetch_all(&state.db)
+            .await?
+        }
     };
 
     let has_more = rows.len() as i64 > limit;
@@ -368,8 +574,18 @@ async fn list_media(
         None
     };
 
+    // Batch-fetch tags for all items in the page
+    let media_ids: Vec<Uuid> = items.iter().map(|m| m.id).collect();
+    let mut tags_map = fetch_tags_batch(&state.db, &media_ids).await?;
+
     Ok(Json(MediaListResponse {
-        items: items.into_iter().map(|m| m.into_response()).collect(),
+        items: items
+            .into_iter()
+            .map(|m| {
+                let tags = tags_map.remove(&m.id).unwrap_or_default();
+                m.into_response(tags)
+            })
+            .collect(),
         next_cursor,
     }))
 }

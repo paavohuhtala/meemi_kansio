@@ -24,11 +24,18 @@ export class UploadPage {
     await this.page.goto('/upload');
   }
 
-  async upload(fileName: string, options?: { name?: string; description?: string }) {
+  async upload(fileName: string, options?: { name?: string; description?: string; tags?: string[] }) {
     await this.goto();
     await this.fileInput.setInputFiles(path.join(TEST_DATA_DIR, fileName));
     if (options?.name) await this.nameInput.fill(options.name);
     if (options?.description) await this.descriptionInput.fill(options.description);
+    if (options?.tags) {
+      const tagField = this.page.getByTestId('tag-input-field');
+      for (const tag of options.tags) {
+        await tagField.fill(tag);
+        await tagField.press('Enter');
+      }
+    }
     await this.submitButton.click();
   }
 }
