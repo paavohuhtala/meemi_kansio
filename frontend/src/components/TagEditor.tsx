@@ -185,12 +185,14 @@ export function TagEditor({ tags, onSave }: TagEditorProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const inputWrapperRef = useRef<HTMLDivElement>(null);
 
-  // Sync draft when props change (e.g., after save)
-  useEffect(() => {
+  // Reset draft when props change (e.g., after save triggers optimistic update)
+  const [prevTags, setPrevTags] = useState(tags);
+  if (prevTags !== tags) {
+    setPrevTags(tags);
     setDraftTags(tags);
     setNewTags(new Set());
     setRemovedTags(new Set());
-  }, [tags]);
+  }
 
   // Debounced query for autocomplete
   const [debouncedQuery, setDebouncedQuery] = useState('');
