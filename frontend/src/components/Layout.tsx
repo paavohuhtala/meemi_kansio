@@ -1,6 +1,7 @@
 import { Link, Outlet, useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { useAuth } from '../hooks/useAuth';
+import { useGlobalFileDrop } from '../hooks/useGlobalFileDrop';
 import {
   DropdownMenuRoot,
   DropdownMenuTrigger,
@@ -59,9 +60,39 @@ const TriggerButton = styled.button`
   }
 `;
 
+const ACCEPTED_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'video/mp4',
+  'video/webm',
+  'video/quicktime',
+];
+
+const DragOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+`;
+
+const DragOverlayText = styled.p`
+  font-size: ${({ theme }) => theme.fontSize.xl};
+  color: white;
+  background: ${({ theme }) => theme.colors.primary};
+  padding: ${({ theme }) => theme.spacing.lg} ${({ theme }) => theme.spacing.xl};
+  border-radius: ${({ theme }) => theme.borderRadius.lg};
+`;
+
 export function Layout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { isDragging } = useGlobalFileDrop(ACCEPTED_TYPES);
 
   return (
     <>
@@ -92,6 +123,11 @@ export function Layout() {
         </DropdownMenuRoot>
       </Nav>
       <Outlet />
+      {isDragging && (
+        <DragOverlay data-testid="drag-overlay">
+          <DragOverlayText>Drop to upload</DragOverlayText>
+        </DragOverlay>
+      )}
     </>
   );
 }
