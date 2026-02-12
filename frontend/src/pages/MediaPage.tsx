@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import styled from 'styled-components';
-import { deleteMedia, getMedia, replaceMediaFile, setMediaTags, updateMedia } from '../api/media';
+import { deleteMedia, getMedia, replaceMediaFile, setMediaTags, updateMedia, type MediaItem } from '../api/media';
 import {
   Button,
   Media,
@@ -155,7 +155,20 @@ export function MediaPage() {
 
   const tagMutation = useMutation({
     mutationFn: (tags: string[]) => setMediaTags(id!, tags),
-    onSuccess: () => {
+    onMutate: async (newTags) => {
+      await queryClient.cancelQueries({ queryKey: ['media', id] });
+      const prev = queryClient.getQueryData<MediaItem>(['media', id]);
+      queryClient.setQueryData<MediaItem>(['media', id], (old) =>
+        old ? { ...old, tags: newTags } : old,
+      );
+      return { prev };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.prev) {
+        queryClient.setQueryData(['media', id], context.prev);
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['media', id] });
       queryClient.invalidateQueries({ queryKey: ['media-list'] });
     },

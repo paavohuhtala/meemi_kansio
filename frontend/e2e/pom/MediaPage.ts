@@ -23,6 +23,8 @@ export class MediaPage {
   readonly copyButton: Locator;
   readonly downloadButton: Locator;
 
+  readonly meta: Locator;
+
   constructor(page: Page) {
     this.page = page;
     this.image = page.locator('img[src*="/api/files/"]');
@@ -45,6 +47,8 @@ export class MediaPage {
 
     this.copyButton = page.getByTitle('Copy to clipboard');
     this.downloadButton = page.getByTitle('Download');
+
+    this.meta = page.getByText(/Uploaded/);
   }
 
   async editTitle(name: string) {

@@ -31,19 +31,19 @@ e2eTest.describe('tagging', () => {
     });
     await page.waitForURL(/\/media\//);
 
-    // Remove existing tag
+    // Remove existing tag and wait for it to be saved
     const removeButton = page.getByLabel('Remove original');
     await removeButton.click();
+    await expect(mediaPage.tagChips).toHaveCount(0);
 
-    // Add new tags via the always-visible TagInput
+    // Add new tags via the always-visible TagInput, waiting for each to save
     await mediaPage.tagInput.fill('updated');
     await mediaPage.tagInput.press('Enter');
+    await expect(mediaPage.tagChips).toHaveCount(1);
+
     await mediaPage.tagInput.fill('new-tag');
     await mediaPage.tagInput.press('Enter');
-
-    // Tags auto-save, verify they're there
-    const chips = mediaPage.tagChips;
-    await expect(chips).toHaveCount(2);
+    await expect(mediaPage.tagChips).toHaveCount(2);
   });
 
   e2eTest('upload without tags shows no tag list', async ({
@@ -102,7 +102,9 @@ e2eTest.describe('tag filtering', () => {
 
     await browsePage.filterByTag('funny');
     await expect(page).toHaveURL(/tags=funny/);
+    await expect(browsePage.gridItems).toHaveCount(2);
     await browsePage.filterByTag('cats');
+    await expect(page).toHaveURL(/tags=funny.*cats|tags=cats.*funny/);
     await expect(browsePage.gridItems).toHaveCount(1);
   });
 
