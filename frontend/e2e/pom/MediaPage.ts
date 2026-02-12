@@ -5,14 +5,14 @@ export class MediaPage {
   readonly image: Locator;
   readonly video: Locator;
   readonly title: Locator;
-  readonly description: Locator;
-  readonly meta: Locator;
-
-  readonly editButton: Locator;
   readonly editName: Locator;
-  readonly editDescription: Locator;
-  readonly saveEdit: Locator;
-  readonly cancelEdit: Locator;
+
+  readonly descriptionText: Locator;
+  readonly descriptionInput: Locator;
+
+  readonly tagList: Locator;
+  readonly tagChips: Locator;
+  readonly tagInput: Locator;
 
   readonly replaceFileButton: Locator;
 
@@ -23,22 +23,19 @@ export class MediaPage {
   readonly copyButton: Locator;
   readonly downloadButton: Locator;
 
-  readonly tagList: Locator;
-  readonly tagChips: Locator;
-
   constructor(page: Page) {
     this.page = page;
     this.image = page.locator('img[src*="/api/files/"]');
     this.video = page.locator('video[src*="/api/files/"]');
     this.title = page.locator('h1');
-    this.description = page.locator('p').first();
-    this.meta = page.getByText(/Uploaded/);
-
-    this.editButton = page.getByTestId('edit-button');
     this.editName = page.getByTestId('edit-name');
-    this.editDescription = page.getByTestId('edit-description');
-    this.saveEdit = page.getByTestId('save-edit');
-    this.cancelEdit = page.getByRole('button', { name: 'Cancel' });
+
+    this.descriptionText = page.getByTestId('description');
+    this.descriptionInput = page.getByTestId('edit-description');
+
+    this.tagList = page.getByTestId('tag-list');
+    this.tagChips = this.tagList.getByTestId('tag-chip');
+    this.tagInput = this.tagList.getByTestId('tag-input-field');
 
     this.replaceFileButton = page.getByTestId('replace-file');
 
@@ -48,16 +45,24 @@ export class MediaPage {
 
     this.copyButton = page.getByTitle('Copy to clipboard');
     this.downloadButton = page.getByTitle('Download');
+  }
 
-    this.tagList = page.getByTestId('tag-list');
-    this.tagChips = this.tagList.locator('a');
+  async editTitle(name: string) {
+    await this.title.click();
+    await this.editName.fill(name);
+    await this.editName.press('Enter');
+  }
+
+  async editDescription(description: string) {
+    await this.descriptionText.click();
+    await this.descriptionInput.fill(description);
+    await this.descriptionInput.press('Enter');
   }
 
   async editMetadata(name: string, description: string) {
-    await this.editButton.click();
-    await this.editName.fill(name);
-    await this.editDescription.fill(description);
-    await this.saveEdit.click();
+    await this.editTitle(name);
+    await this.title.waitFor();
+    await this.editDescription(description);
   }
 
   async replaceFile(filePath: string) {

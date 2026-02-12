@@ -18,19 +18,6 @@ e2eTest('edit name and description', async ({ page, uploadPage, mediaPage }) => 
   await expect(page.getByText('Updated Desc')).toBeVisible();
 });
 
-e2eTest('cancel edit discards changes', async ({ page, uploadPage, mediaPage }) => {
-  await uploadPage.upload('sokerivarasto.jpg', { name: 'Keep This', description: 'Keep This Too' });
-  await page.waitForURL(/\/media\//);
-
-  await mediaPage.editButton.click();
-  await mediaPage.editName.fill('Discarded');
-  await mediaPage.editDescription.fill('Also Discarded');
-  await mediaPage.cancelEdit.click();
-
-  await expect(mediaPage.title).toHaveText('Keep This');
-  await expect(page.getByText('Keep This Too')).toBeVisible();
-});
-
 e2eTest('replace file changes the image', async ({ page, uploadPage, mediaPage }) => {
   await uploadPage.upload('sokerivarasto.jpg', { name: 'Replace Test' });
   await page.waitForURL(/\/media\//);

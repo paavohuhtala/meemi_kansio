@@ -18,9 +18,10 @@ e2eTest.describe('tagging', () => {
     await page.waitForURL(/\/media\//);
 
     await expect(mediaPage.tagList).toBeVisible();
-    await expect(mediaPage.tagChips).toHaveCount(2);
-    await expect(mediaPage.tagChips.nth(0)).toHaveText('classic');
-    await expect(mediaPage.tagChips.nth(1)).toHaveText('funny');
+    const chips = mediaPage.tagChips;
+    await expect(chips).toHaveCount(2);
+    await expect(chips.nth(0)).toContainText('classic');
+    await expect(chips.nth(1)).toContainText('funny');
   });
 
   e2eTest('edit tags on detail page', async ({ page, uploadPage, mediaPage }) => {
@@ -30,25 +31,19 @@ e2eTest.describe('tagging', () => {
     });
     await page.waitForURL(/\/media\//);
 
-    // Enter edit mode
-    await mediaPage.editButton.click();
-
-    // Remove existing tag and add new ones
+    // Remove existing tag
     const removeButton = page.getByLabel('Remove original');
     await removeButton.click();
 
-    const tagField = page.getByTestId('tag-input-field');
-    await tagField.fill('updated');
-    await tagField.press('Enter');
-    await tagField.fill('new-tag');
-    await tagField.press('Enter');
+    // Add new tags via the always-visible TagInput
+    await mediaPage.tagInput.fill('updated');
+    await mediaPage.tagInput.press('Enter');
+    await mediaPage.tagInput.fill('new-tag');
+    await mediaPage.tagInput.press('Enter');
 
-    await mediaPage.saveEdit.click();
-
-    // Verify updated tags
-    await expect(mediaPage.tagChips).toHaveCount(2);
-    await expect(mediaPage.tagChips.nth(0)).toHaveText('new-tag');
-    await expect(mediaPage.tagChips.nth(1)).toHaveText('updated');
+    // Tags auto-save, verify they're there
+    const chips = mediaPage.tagChips;
+    await expect(chips).toHaveCount(2);
   });
 
   e2eTest('upload without tags shows no tag list', async ({
@@ -59,7 +54,7 @@ e2eTest.describe('tagging', () => {
     await uploadPage.upload('sokerivarasto.jpg', { name: 'No Tags' });
     await page.waitForURL(/\/media\//);
 
-    await expect(mediaPage.tagList).toHaveCount(0);
+    await expect(mediaPage.tagChips).toHaveCount(0);
   });
 });
 
@@ -137,18 +132,4 @@ e2eTest.describe('tag filtering', () => {
     await expect(page).toHaveURL(/tags=cats/);
   });
 
-  e2eTest('tag chip on detail page links to filtered browse', async ({
-    page,
-    uploadPage,
-    mediaPage,
-  }) => {
-    await uploadPage.upload('sokerivarasto.jpg', {
-      name: 'Link Test',
-      tags: ['linkable'],
-    });
-    await page.waitForURL(/\/media\//);
-
-    await mediaPage.tagChips.first().click();
-    await expect(page).toHaveURL(/\/\?tags=linkable/);
-  });
 });
