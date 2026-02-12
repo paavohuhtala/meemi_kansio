@@ -7,7 +7,7 @@ import {
   Button,
   Media,
   MediaOverlay,
-  TagInput,
+  TagEditor,
   AlertDialogRoot,
   AlertDialogTrigger,
   AlertDialogPortal,
@@ -287,11 +287,10 @@ export function MediaPage() {
             mediaType={media.media_type}
           />
         </MediaWrapper>
-        <TagPanel data-testid="tag-list">
-          <TagInput
+        <TagPanel>
+          <TagEditor
             tags={media.tags}
-            onChange={(tags) => tagMutation.mutate(tags)}
-            placeholder="Click to add tags"
+            onSave={(tags) => tagMutation.mutate(tags)}
           />
         </TagPanel>
       </ContentGrid>

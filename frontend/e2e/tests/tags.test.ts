@@ -17,7 +17,7 @@ e2eTest.describe('tagging', () => {
     });
     await page.waitForURL(/\/media\//);
 
-    await expect(mediaPage.tagList).toBeVisible();
+    await expect(mediaPage.tagEditor).toBeVisible();
     const chips = mediaPage.tagChips;
     await expect(chips).toHaveCount(2);
     await expect(chips.nth(0)).toContainText('classic');
@@ -31,22 +31,29 @@ e2eTest.describe('tagging', () => {
     });
     await page.waitForURL(/\/media\//);
 
-    // Remove existing tag and wait for it to be saved
-    const removeButton = page.getByLabel('Remove original');
-    await removeButton.click();
-    await expect(mediaPage.tagChips).toHaveCount(0);
+    await mediaPage.editTags({ remove: ['original'], add: ['updated', 'new-tag'] });
 
-    // Add new tags via the always-visible TagInput, waiting for each to save
-    await mediaPage.tagInput.fill('updated');
-    await mediaPage.tagInput.press('Enter');
-    await expect(mediaPage.tagChips).toHaveCount(1);
-
-    await mediaPage.tagInput.fill('new-tag');
-    await mediaPage.tagInput.press('Enter');
     await expect(mediaPage.tagChips).toHaveCount(2);
+    await expect(mediaPage.tagChips.nth(0)).toContainText('new-tag');
+    await expect(mediaPage.tagChips.nth(1)).toContainText('updated');
   });
 
-  e2eTest('upload without tags shows no tag list', async ({
+  e2eTest('cancel tag edit reverts changes', async ({ page, uploadPage, mediaPage }) => {
+    await uploadPage.upload('sokerivarasto.jpg', {
+      name: 'Cancel Test',
+      tags: ['keep-me'],
+    });
+    await page.waitForURL(/\/media\//);
+
+    await mediaPage.removeTag('keep-me');
+    await expect(mediaPage.removedTagChips).toHaveCount(1);
+    await mediaPage.cancelTagEdit();
+
+    await expect(mediaPage.tagChips).toHaveCount(1);
+    await expect(mediaPage.tagChips.nth(0)).toContainText('keep-me');
+  });
+
+  e2eTest('upload without tags shows add tag button', async ({
     page,
     uploadPage,
     mediaPage,
@@ -55,6 +62,7 @@ e2eTest.describe('tagging', () => {
     await page.waitForURL(/\/media\//);
 
     await expect(mediaPage.tagChips).toHaveCount(0);
+    await expect(mediaPage.addTagButton).toBeVisible();
   });
 });
 

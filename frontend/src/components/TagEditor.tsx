@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Cross1Icon, PlusIcon } from '@radix-ui/react-icons';
 import { useQuery } from '@tanstack/react-query';
-import styled, { css } from 'styled-components';
+import styled from 'styled-components';
 import { searchTags } from '../api/media';
 import { Button } from './Button';
 

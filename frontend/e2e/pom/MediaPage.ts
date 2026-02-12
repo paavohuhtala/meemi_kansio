@@ -10,9 +10,13 @@ export class MediaPage {
   readonly descriptionText: Locator;
   readonly descriptionInput: Locator;
 
-  readonly tagList: Locator;
+  readonly tagEditor: Locator;
   readonly tagChips: Locator;
-  readonly tagInput: Locator;
+  readonly removedTagChips: Locator;
+  readonly addTagButton: Locator;
+  readonly addTagInput: Locator;
+  readonly saveTagsButton: Locator;
+  readonly cancelTagsButton: Locator;
 
   readonly replaceFileButton: Locator;
 
@@ -35,9 +39,13 @@ export class MediaPage {
     this.descriptionText = page.getByTestId('description');
     this.descriptionInput = page.getByTestId('edit-description');
 
-    this.tagList = page.getByTestId('tag-list');
-    this.tagChips = this.tagList.getByTestId('tag-chip');
-    this.tagInput = this.tagList.getByTestId('tag-input-field');
+    this.tagEditor = page.getByTestId('tag-editor');
+    this.tagChips = this.tagEditor.getByTestId('tag-chip');
+    this.removedTagChips = this.tagEditor.getByTestId('removed-tag-chip');
+    this.addTagButton = this.tagEditor.getByTestId('add-tag-button');
+    this.addTagInput = this.tagEditor.getByTestId('add-tag-input');
+    this.saveTagsButton = this.tagEditor.getByTestId('save-tags');
+    this.cancelTagsButton = this.tagEditor.getByTestId('cancel-tags');
 
     this.replaceFileButton = page.getByTestId('replace-file');
 
@@ -67,6 +75,42 @@ export class MediaPage {
     await this.editTitle(name);
     await this.title.waitFor();
     await this.editDescription(description);
+  }
+
+  async addTag(name: string) {
+    await this.addTagButton.click();
+    await this.addTagInput.fill(name);
+    await this.addTagInput.press('Enter');
+    await this.addTagInput.press('Escape');
+  }
+
+  async removeTag(name: string) {
+    await this.tagChips.filter({ hasText: name }).getByRole('button').click();
+  }
+
+  async saveTags() {
+    await this.saveTagsButton.click();
+  }
+
+  async cancelTagEdit() {
+    await this.cancelTagsButton.click();
+  }
+
+  async editTags({ add, remove }: { add?: string[]; remove?: string[] }) {
+    if (remove) {
+      for (const tag of remove) {
+        await this.removeTag(tag);
+      }
+    }
+    if (add) {
+      await this.addTagButton.click();
+      for (const tag of add) {
+        await this.addTagInput.fill(tag);
+        await this.addTagInput.press('Enter');
+      }
+      await this.addTagInput.press('Escape');
+    }
+    await this.saveTags();
   }
 
   async replaceFile(filePath: string) {
