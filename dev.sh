@@ -8,6 +8,17 @@ if tmux has-session -t "$SESSION" 2>/dev/null; then
   exec tmux attach -t "$SESSION"
 fi
 
+# Start Docker Compose databases if not running
+if ! docker compose -p meemi_kansio ps --status running --format '{{.Name}}' 2>/dev/null | grep -q .; then
+  echo "Starting dev database..."
+  docker compose -p meemi_kansio up -d --wait
+fi
+
+if ! docker compose -p meemi_kansio_test -f test-db-compose.yaml ps --status running --format '{{.Name}}' 2>/dev/null | grep -q .; then
+  echo "Starting test database..."
+  docker compose -p meemi_kansio_test -f test-db-compose.yaml up -d --wait
+fi
+
 tmux new-session -d -s "$SESSION" -c "$PWD/frontend"
 tmux send-keys -t "$SESSION" 'pnpm dev' Enter
 
