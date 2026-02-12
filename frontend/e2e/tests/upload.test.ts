@@ -1,4 +1,7 @@
 import { e2eTest, expect } from '../fixtures.ts';
+import path from 'node:path';
+
+const TEST_DATA_DIR = path.resolve(import.meta.dirname, '..', '..', '..', 'test_data', 'memes');
 
 e2eTest.beforeEach(async ({ page, registerPage }) => {
   await registerPage.register('uploader', 'password123');
@@ -51,4 +54,22 @@ e2eTest('upload unsupported file type shows error', async ({ page, uploadPage })
   await uploadPage.upload('invalid.unknown');
 
   await expect(page.getByText(/Unsupported file type/)).toBeVisible();
+});
+
+e2eTest('shows image preview after selecting file', async ({ uploadPage }) => {
+  await uploadPage.goto();
+  await uploadPage.fileInput.setInputFiles(
+    path.join(TEST_DATA_DIR, 'sokerivarasto.jpg'),
+  );
+
+  await expect(uploadPage.previewImage).toBeVisible();
+});
+
+e2eTest('shows video preview after selecting file', async ({ uploadPage }) => {
+  await uploadPage.goto();
+  await uploadPage.fileInput.setInputFiles(
+    path.join(TEST_DATA_DIR, 'kitten_horn.mp4'),
+  );
+
+  await expect(uploadPage.previewVideo).toBeVisible();
 });

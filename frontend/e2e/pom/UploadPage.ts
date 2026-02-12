@@ -10,6 +10,9 @@ export class UploadPage {
   readonly descriptionInput: Locator;
   readonly submitButton: Locator;
   readonly errorText: Locator;
+  readonly dropZone: Locator;
+  readonly previewImage: Locator;
+  readonly previewVideo: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -18,6 +21,9 @@ export class UploadPage {
     this.descriptionInput = page.getByPlaceholder('Add a description');
     this.submitButton = page.getByRole('button', { name: 'Upload', exact: true });
     this.errorText = page.getByText(/unsupported|failed|error/i);
+    this.dropZone = page.getByTestId('drop-zone');
+    this.previewImage = page.getByTestId('upload-preview-image');
+    this.previewVideo = page.getByTestId('upload-preview-video');
   }
 
   async goto() {
