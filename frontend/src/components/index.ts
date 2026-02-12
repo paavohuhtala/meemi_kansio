@@ -1,4 +1,5 @@
 export { Button } from './Button';
+export { DropZone } from './DropZone';
 export { Input } from './Input';
 export { Label } from './Label';
 export {
