@@ -1,9 +1,9 @@
 import { useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import styled from 'styled-components';
 import { uploadMedia } from '../api/media';
-import { Button, Input, Label, TagInput } from '../components';
+import { Button, DropZone, Input, Label, TagInput } from '../components';
 
 const Container = styled.div`
   max-width: 600px;
@@ -54,11 +54,23 @@ const ErrorText = styled.p`
   font-size: ${({ theme }) => theme.fontSize.sm};
 `;
 
-const ACCEPTED_TYPES = 'image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm,video/quicktime';
+const ACCEPTED_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'video/mp4',
+  'video/webm',
+  'video/quicktime',
+];
 
 export function UploadPage() {
+  const location = useLocation();
   const navigate = useNavigate();
-  const [file, setFile] = useState<File | null>(null);
+  const [file, setFile] = useState<File | null>(() => {
+    const stateFile = (location.state as { file?: File } | null)?.file;
+    return stateFile instanceof File ? stateFile : null;
+  });
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [tags, setTags] = useState<string[]>([]);
@@ -78,14 +90,8 @@ export function UploadPage() {
       <Heading>Upload</Heading>
       <Form onSubmit={handleSubmit}>
         <Field>
-          <Label htmlFor="file">File</Label>
-          <Input
-            id="file"
-            type="file"
-            accept={ACCEPTED_TYPES}
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-            required
-          />
+          <Label>File</Label>
+          <DropZone value={file} onChange={setFile} accept={ACCEPTED_TYPES} />
         </Field>
         <Field>
           <Label htmlFor="name">Name (optional)</Label>
