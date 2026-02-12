@@ -5,7 +5,6 @@ import styled from 'styled-components';
 import { deleteMedia, getMedia, replaceMediaFile, setMediaTags, updateMedia } from '../api/media';
 import {
   Button,
-  Input,
   Media,
   MediaOverlay,
   TagInput,
@@ -128,25 +127,12 @@ const HiddenInput = styled.input`
 
 const TagPanel = styled.div``;
 
-const EditForm = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${({ theme }) => theme.spacing.sm};
-  margin-bottom: ${({ theme }) => theme.spacing.lg};
-`;
-
-const EditActions = styled.div`
-  display: flex;
-  gap: ${({ theme }) => theme.spacing.sm};
-`;
-
 export function MediaPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [editingTitle, setEditingTitle] = useState(false);
@@ -156,18 +142,6 @@ export function MediaPage() {
     queryKey: ['media', id],
     queryFn: () => getMedia(id!),
     enabled: !!id,
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: async (data: { name?: string; description?: string; tags: string[] }) => {
-      const { tags, ...meta } = data;
-      await updateMedia(id!, meta);
-      await setMediaTags(id!, tags);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['media', id] });
-      setEditing(false);
-    },
   });
 
   const metaMutation = useMutation({
@@ -206,24 +180,6 @@ export function MediaPage() {
   if (isLoading) return <Container>Loading...</Container>;
   if (error) return <Container>Failed to load media.</Container>;
   if (!media) return <Container>Not found.</Container>;
-
-  function startEditing() {
-    setEditName(media!.name ?? '');
-    setEditDescription(media!.description ?? '');
-    setEditing(true);
-  }
-
-  function handleSave() {
-    updateMutation.mutate({
-      name: editName,
-      description: editDescription,
-      tags: media!.tags,
-    });
-  }
-
-  function handleCancel() {
-    setEditing(false);
-  }
 
   function handleTitleClick() {
     setEditName(media!.name ?? '');
@@ -295,11 +251,6 @@ export function MediaPage() {
           </Title>
         )}
         <HeaderActions>
-          {!editing && (
-            <Button variant="ghost" onClick={startEditing} data-testid="edit-button">
-              Edit
-            </Button>
-          )}
           <Button
             variant="ghost"
             onClick={() => fileInputRef.current?.click()}
@@ -348,33 +299,6 @@ export function MediaPage() {
         </HeaderActions>
       </Header>
 
-      {editing && (
-        <EditForm>
-          <Input
-            value={editName}
-            onChange={(e) => setEditName(e.target.value)}
-            placeholder="Name"
-          />
-          <Input
-            value={editDescription}
-            onChange={(e) => setEditDescription(e.target.value)}
-            placeholder="Description"
-          />
-          <EditActions>
-            <Button
-              onClick={handleSave}
-              loading={updateMutation.isPending}
-              data-testid="save-edit"
-            >
-              Save
-            </Button>
-            <Button variant="ghost" onClick={handleCancel}>
-              Cancel
-            </Button>
-          </EditActions>
-        </EditForm>
-      )}
-
       <ContentGrid>
         <MediaWrapper>
           <Media item={media} alt={media.name ?? 'Uploaded media'} controls />
@@ -384,32 +308,28 @@ export function MediaPage() {
             mediaType={media.media_type}
           />
         </MediaWrapper>
-        {!editing && (
-          <TagPanel data-testid="tag-list">
-            <TagInput
-              tags={media.tags}
-              onChange={(tags) => tagMutation.mutate(tags)}
-              placeholder="Click to add tags"
-            />
-          </TagPanel>
-        )}
+        <TagPanel data-testid="tag-list">
+          <TagInput
+            tags={media.tags}
+            onChange={(tags) => tagMutation.mutate(tags)}
+            placeholder="Click to add tags"
+          />
+        </TagPanel>
       </ContentGrid>
 
-      {!editing && (
-        editingDescription ? (
-          <DescriptionTextarea
-            value={editDescription}
-            onChange={(e) => setEditDescription(e.target.value)}
-            onKeyDown={handleDescriptionKeyDown}
-            onBlur={saveDescription}
-            autoFocus
-            data-testid="edit-description"
-          />
-        ) : (
-          <Description onClick={handleDescriptionClick} data-testid="description">
-            {media.description || <Placeholder>Click to add a description</Placeholder>}
-          </Description>
-        )
+      {editingDescription ? (
+        <DescriptionTextarea
+          value={editDescription}
+          onChange={(e) => setEditDescription(e.target.value)}
+          onKeyDown={handleDescriptionKeyDown}
+          onBlur={saveDescription}
+          autoFocus
+          data-testid="edit-description"
+        />
+      ) : (
+        <Description onClick={handleDescriptionClick} data-testid="description">
+          {media.description || <Placeholder>Click to add a description</Placeholder>}
+        </Description>
       )}
 
       <Meta>
