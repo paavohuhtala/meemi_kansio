@@ -1,4 +1,5 @@
 use std::path::Path;
+use std::process::Stdio;
 
 use tokio::process::Command;
 
@@ -11,6 +12,7 @@ fn path_str(path: &Path) -> Result<&str, AppError> {
 
 async fn extract_frame_at(path_str: &str, timestamp: &str) -> Result<Vec<u8>, AppError> {
     let output = Command::new("ffmpeg")
+        .stdin(Stdio::null())
         .args([
             "-ss", timestamp,
             "-i", path_str,
@@ -41,13 +43,17 @@ pub async fn extract_frame(path: &Path) -> Result<Vec<u8>, AppError> {
     let s = path_str(path)?;
     match extract_frame_at(s, "1").await {
         Ok(bytes) => Ok(bytes),
-        Err(_) => extract_frame_at(s, "0").await,
+        Err(e) => {
+            tracing::debug!("Frame at 1s failed, retrying at 0s: {e}");
+            extract_frame_at(s, "0").await
+        }
     }
 }
 
 /// Extract video dimensions (width, height) using ffprobe.
 pub async fn probe_dimensions(path: &Path) -> Result<(i32, i32), AppError> {
     let output = Command::new("ffprobe")
+        .stdin(Stdio::null())
         .args([
             "-v", "error",
             "-select_streams", "v:0",

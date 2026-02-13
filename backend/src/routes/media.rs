@@ -51,6 +51,33 @@ fn extension_from_mime(mime: &str) -> &str {
 
 const MAX_UPLOAD_SIZE: usize = 50 * 1024 * 1024; // 50 MB
 
+/// Extract a video frame and generate a gallery thumbnail (best-effort).
+async fn generate_video_thumbnail(file_path: &Path, upload_dir: &str, file_name: &str) {
+    let thumb_stem = file_name
+        .rsplit_once('.')
+        .map(|(s, _)| s.to_string())
+        .unwrap_or_else(|| file_name.to_string());
+    match crate::video::extract_frame(file_path).await {
+        Ok(frame_bytes) => {
+            let thumb_dir = upload_dir.to_string();
+            let result = tokio::task::spawn_blocking(move || {
+                crate::thumbnails::generate_gallery_thumb(
+                    &frame_bytes,
+                    Path::new(&thumb_dir),
+                    &thumb_stem,
+                )
+            })
+            .await;
+            match result {
+                Ok(Ok(())) => {}
+                Ok(Err(e)) => tracing::warn!("Video thumbnail generation failed: {e}"),
+                Err(e) => tracing::warn!("Video thumbnail task panicked: {e}"),
+            }
+        }
+        Err(e) => tracing::warn!("Video frame extraction failed: {e}"),
+    }
+}
+
 pub fn router(upload_dir: &str) -> Router<AppState> {
     Router::new()
         .route("/api/media/upload", post(upload))
@@ -292,30 +319,7 @@ async fn upload(
             Err(e) => tracing::warn!("Thumbnail task panicked: {e}"),
         }
     } else {
-        // Extract a video frame and generate gallery thumbnail
-        let thumb_stem = file_name
-            .rsplit_once('.')
-            .map(|(s, _)| s.to_string())
-            .unwrap_or_else(|| file_name.clone());
-        match crate::video::extract_frame(&file_path).await {
-            Ok(frame_bytes) => {
-                let thumb_dir = upload_dir.to_string();
-                let result = tokio::task::spawn_blocking(move || {
-                    crate::thumbnails::generate_gallery_thumb(
-                        &frame_bytes,
-                        Path::new(&thumb_dir),
-                        &thumb_stem,
-                    )
-                })
-                .await;
-                match result {
-                    Ok(Ok(())) => {}
-                    Ok(Err(e)) => tracing::warn!("Video thumbnail generation failed: {e}"),
-                    Err(e) => tracing::warn!("Video thumbnail task panicked: {e}"),
-                }
-            }
-            Err(e) => tracing::warn!("Video frame extraction failed: {e}"),
-        }
+        generate_video_thumbnail(&file_path, upload_dir, &file_name).await;
     }
 
     // Filter empty strings to None
@@ -502,30 +506,7 @@ async fn replace_file(
             Err(e) => tracing::warn!("Thumbnail task panicked: {e}"),
         }
     } else {
-        // Extract a video frame and generate gallery thumbnail
-        let thumb_stem = file_name
-            .rsplit_once('.')
-            .map(|(s, _)| s.to_string())
-            .unwrap_or_else(|| file_name.clone());
-        match crate::video::extract_frame(&file_path).await {
-            Ok(frame_bytes) => {
-                let thumb_dir = upload_dir.to_string();
-                let result = tokio::task::spawn_blocking(move || {
-                    crate::thumbnails::generate_gallery_thumb(
-                        &frame_bytes,
-                        Path::new(&thumb_dir),
-                        &thumb_stem,
-                    )
-                })
-                .await;
-                match result {
-                    Ok(Ok(())) => {}
-                    Ok(Err(e)) => tracing::warn!("Video thumbnail generation failed: {e}"),
-                    Err(e) => tracing::warn!("Video thumbnail task panicked: {e}"),
-                }
-            }
-            Err(e) => tracing::warn!("Video frame extraction failed: {e}"),
-        }
+        generate_video_thumbnail(&file_path, upload_dir, &file_name).await;
     }
 
     let media = sqlx::query_as::<_, Media>(
