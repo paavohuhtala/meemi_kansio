@@ -6,6 +6,8 @@ export interface MediaItem {
   description: string | null;
   media_type: 'image' | 'video' | 'gif';
   file_url: string;
+  thumbnail_url: string | null;
+  clipboard_url: string | null;
   file_size: number;
   mime_type: string;
   width: number | null;

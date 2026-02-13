@@ -6,6 +6,7 @@ interface MediaOverlayProps {
   fileUrl: string;
   fileName: string;
   mediaType: 'image' | 'video' | 'gif';
+  clipboardUrl?: string | null;
 }
 
 const Wrapper = styled.div`
@@ -72,15 +73,27 @@ function downloadFile(url: string, name: string) {
   a.click();
 }
 
-export function MediaOverlay({ fileUrl, fileName, mediaType }: MediaOverlayProps) {
+export function MediaOverlay({ fileUrl, fileName, mediaType, clipboardUrl }: MediaOverlayProps) {
   const [copied, setCopied] = useState(false);
-  const canCopy = mediaType === 'image';
+  const canCopy = mediaType === 'image' || !!clipboardUrl;
 
   async function handleCopy(e: MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
     try {
-      await copyImageToClipboard(fileUrl);
+      if (clipboardUrl) {
+        const res = await fetch(clipboardUrl, { credentials: 'include' });
+        if (res.ok) {
+          const blob = await res.blob();
+          await navigator.clipboard.write([
+            new ClipboardItem({ 'image/png': blob }),
+          ]);
+        } else {
+          await copyImageToClipboard(fileUrl);
+        }
+      } else {
+        await copyImageToClipboard(fileUrl);
+      }
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {

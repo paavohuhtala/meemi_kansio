@@ -241,13 +241,18 @@ export function HomePage() {
           <Card key={item.id}>
             <CardLink to={`/media/${item.id}`}>
               <CardMedia $ratio={aspectRatio(item)}>
-                <Media item={item} loading="lazy" preload="metadata" />
+                <Media
+                  item={item.thumbnail_url ? { ...item, file_url: item.thumbnail_url } : item}
+                  loading="lazy"
+                  preload="metadata"
+                />
               </CardMedia>
               {item.media_type === 'video' && <PlayIcon />}
               <MediaOverlay
                 fileUrl={item.file_url}
                 fileName={item.name ?? `media-${item.id}`}
                 mediaType={item.media_type}
+                clipboardUrl={item.clipboard_url}
               />
               {item.name && <NameOverlay data-overlay>{item.name}</NameOverlay>}
             </CardLink>

@@ -285,6 +285,7 @@ export function MediaPage() {
             fileUrl={media.file_url}
             fileName={media.name ?? `media-${media.id}`}
             mediaType={media.media_type}
+            clipboardUrl={media.clipboard_url}
           />
         </MediaWrapper>
         <TagPanel>
