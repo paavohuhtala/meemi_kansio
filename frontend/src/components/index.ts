@@ -15,6 +15,7 @@ export { Media } from './Media';
 export { MediaOverlay } from './MediaOverlay';
 export { TagInput } from './TagInput';
 export { TagEditor } from './TagEditor';
+export { ToastProvider, useToast } from './Toast';
 export {
   AlertDialogRoot,
   AlertDialogTrigger,

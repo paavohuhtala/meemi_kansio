@@ -11,6 +11,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from './DropdownMenu';
+import { ToastProvider } from './Toast';
 
 const Nav = styled.nav`
   display: flex;
@@ -95,7 +96,7 @@ export function Layout() {
   const { isDragging } = useGlobalFileDrop(ACCEPTED_TYPES);
 
   return (
-    <>
+    <ToastProvider>
       <Nav>
         <Logo to="/">meemi_kansio</Logo>
         <NavLink to="/upload">Upload</NavLink>
@@ -128,6 +129,6 @@ export function Layout() {
           <DragOverlayText>Drop to upload</DragOverlayText>
         </DragOverlay>
       )}
-    </>
+    </ToastProvider>
   );
 }

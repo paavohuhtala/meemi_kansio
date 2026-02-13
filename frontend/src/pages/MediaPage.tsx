@@ -18,6 +18,7 @@ import {
   AlertDialogActions,
   AlertDialogCancel,
   AlertDialogAction,
+  useToast,
 } from '../components';
 import { media as bp } from '../styles/theme';
 
@@ -130,6 +131,7 @@ export function MediaPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
   const [editName, setEditName] = useState('');
   const [editDescription, setEditDescription] = useState('');
@@ -190,6 +192,10 @@ export function MediaPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['media', id] });
       queryClient.invalidateQueries({ queryKey: ['media-list'] });
+      toast('File replaced');
+    },
+    onError: () => {
+      toast('Failed to replace file', 'error');
     },
   });
 
