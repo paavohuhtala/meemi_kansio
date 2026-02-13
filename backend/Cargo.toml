@@ -21,3 +21,6 @@ rand = "0.8"
 axum-extra = { version = "0.10", features = ["cookie", "query"] }
 time = "0.3"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "gif", "webp"] }
+
+[profile.dev.package.image]
+opt-level = 3
