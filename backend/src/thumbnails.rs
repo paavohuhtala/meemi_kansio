@@ -56,6 +56,28 @@ pub fn generate(
     Ok(())
 }
 
+/// Generate only the gallery thumbnail (WebP) from raw image bytes.
+/// Used for video frames where a clipboard copy isn't needed.
+pub fn generate_gallery_thumb(
+    bytes: &[u8],
+    upload_dir: &Path,
+    file_stem: &str,
+) -> Result<(), AppError> {
+    let img = ImageReader::new(Cursor::new(bytes))
+        .with_guessed_format()
+        .map_err(|e| AppError::Internal(format!("Failed to detect image format: {e}")))?
+        .decode()
+        .map_err(|e| AppError::Internal(format!("Failed to decode image: {e}")))?;
+
+    let thumb = resize_to_max(&img, THUMB_MAX_DIM);
+    let thumb_path = upload_dir.join(format!("{file_stem}_thumb.webp"));
+    thumb
+        .save(&thumb_path)
+        .map_err(|e| AppError::Internal(format!("Failed to save thumbnail: {e}")))?;
+
+    Ok(())
+}
+
 /// Return the thumbnail file paths derived from the original filename.
 /// Used for cleanup during delete/replace.
 pub fn thumbnail_paths(upload_dir: &Path, file_name: &str) -> [std::path::PathBuf; 2] {
