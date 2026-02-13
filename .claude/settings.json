@@ -10,7 +10,10 @@
       "Bash(pnpm test:db:start:*)",
       "Bash(pnpm run build:*)",
       "Bash(pnpm test:e2e:*)",
-      "Bash(pnpm exec playwright test:*)"
+      "Bash(pnpm exec playwright test:*)",
+      "mcp__plugin_context7_context7__resolve-library-id",
+      "mcp__plugin_context7_context7__query-docs",
+      "Bash(cargo clippy:*)"
     ]
   }
 }
