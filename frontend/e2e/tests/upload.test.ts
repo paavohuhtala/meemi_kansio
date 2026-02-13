@@ -114,7 +114,7 @@ e2eTest('thumbnail files are servable after upload', async ({ page, uploadPage }
   expect(clipboardRes.ok()).toBe(true);
 });
 
-e2eTest('upload MP4 does not return thumbnail URLs', async ({ page, uploadPage }) => {
+e2eTest('upload MP4 returns thumbnail URL', async ({ page, uploadPage }) => {
   await uploadPage.goto();
   await uploadPage.fileInput.setInputFiles(
     path.join(TEST_DATA_DIR, 'kitten_horn.mp4'),
@@ -127,6 +127,24 @@ e2eTest('upload MP4 does not return thumbnail URLs', async ({ page, uploadPage }
   const response = await responsePromise;
   const data = await response.json();
 
-  expect(data.thumbnail_url).toBeNull();
+  expect(data.thumbnail_url).toBeTruthy();
+  expect(data.thumbnail_url).toContain('_thumb.webp');
   expect(data.clipboard_url).toBeNull();
+});
+
+e2eTest('video thumbnail file is servable after upload', async ({ page, uploadPage }) => {
+  await uploadPage.goto();
+  await uploadPage.fileInput.setInputFiles(
+    path.join(TEST_DATA_DIR, 'kitten_horn.mp4'),
+  );
+
+  const responsePromise = page.waitForResponse(
+    (res) => res.url().includes('/api/media/upload') && res.status() === 200,
+  );
+  await uploadPage.submitButton.click();
+  const response = await responsePromise;
+  const data = await response.json();
+
+  const thumbRes = await page.request.get(data.thumbnail_url);
+  expect(thumbRes.ok()).toBe(true);
 });
