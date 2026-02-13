@@ -242,7 +242,7 @@ export function HomePage() {
             <CardLink to={`/media/${item.id}`}>
               <CardMedia $ratio={aspectRatio(item)}>
                 <Media
-                  item={item.thumbnail_url ? { ...item, file_url: item.thumbnail_url } : item}
+                  item={item.thumbnail_url ? { ...item, file_url: item.thumbnail_url, media_type: 'image' as const } : item}
                   loading="lazy"
                   preload="metadata"
                 />
