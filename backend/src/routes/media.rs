@@ -259,16 +259,23 @@ async fn upload(
         .await
         .map_err(|e| AppError::Internal(format!("Failed to write file: {e}")))?;
 
-    // Extract image dimensions (skip for videos)
+    // Extract dimensions and generate thumbnails
     let (width, height) = if media_type != MediaType::Video {
         extract_image_dimensions(&bytes)
             .map(|(w, h)| (Some(w), Some(h)))
             .unwrap_or((None, None))
     } else {
-        (None, None)
+        // Extract video dimensions via ffprobe (best-effort)
+        match crate::video::probe_dimensions(&file_path).await {
+            Ok((w, h)) => (Some(w), Some(h)),
+            Err(e) => {
+                tracing::warn!("Video dimension extraction failed: {e}");
+                (None, None)
+            }
+        }
     };
 
-    // Generate thumbnails for images and GIFs (best-effort)
+    // Generate thumbnails (best-effort)
     if media_type != MediaType::Video {
         let thumb_dir = upload_dir.to_string();
         let thumb_stem = file_name
@@ -283,6 +290,31 @@ async fn upload(
             Ok(Ok(())) => {}
             Ok(Err(e)) => tracing::warn!("Thumbnail generation failed: {e}"),
             Err(e) => tracing::warn!("Thumbnail task panicked: {e}"),
+        }
+    } else {
+        // Extract a video frame and generate gallery thumbnail
+        let thumb_stem = file_name
+            .rsplit_once('.')
+            .map(|(s, _)| s.to_string())
+            .unwrap_or_else(|| file_name.clone());
+        match crate::video::extract_frame(&file_path).await {
+            Ok(frame_bytes) => {
+                let thumb_dir = upload_dir.to_string();
+                let result = tokio::task::spawn_blocking(move || {
+                    crate::thumbnails::generate_gallery_thumb(
+                        &frame_bytes,
+                        Path::new(&thumb_dir),
+                        &thumb_stem,
+                    )
+                })
+                .await;
+                match result {
+                    Ok(Ok(())) => {}
+                    Ok(Err(e)) => tracing::warn!("Video thumbnail generation failed: {e}"),
+                    Err(e) => tracing::warn!("Video thumbnail task panicked: {e}"),
+                }
+            }
+            Err(e) => tracing::warn!("Video frame extraction failed: {e}"),
         }
     }
 
@@ -430,12 +462,20 @@ async fn replace_file(
         .await
         .map_err(|e| AppError::Internal(format!("Failed to write file: {e}")))?;
 
+    // Extract dimensions and generate thumbnails
     let (width, height) = if media_type != MediaType::Video {
         extract_image_dimensions(&bytes)
             .map(|(w, h)| (Some(w), Some(h)))
             .unwrap_or((None, None))
     } else {
-        (None, None)
+        // Extract video dimensions via ffprobe (best-effort)
+        match crate::video::probe_dimensions(&file_path).await {
+            Ok((w, h)) => (Some(w), Some(h)),
+            Err(e) => {
+                tracing::warn!("Video dimension extraction failed: {e}");
+                (None, None)
+            }
+        }
     };
 
     // Delete old file and thumbnails from disk (best-effort)
@@ -445,7 +485,7 @@ async fn replace_file(
         let _ = tokio::fs::remove_file(&thumb_path).await;
     }
 
-    // Generate thumbnails for images and GIFs (best-effort)
+    // Generate thumbnails (best-effort)
     if media_type != MediaType::Video {
         let thumb_dir = upload_dir.to_string();
         let thumb_stem = file_name
@@ -460,6 +500,31 @@ async fn replace_file(
             Ok(Ok(())) => {}
             Ok(Err(e)) => tracing::warn!("Thumbnail generation failed: {e}"),
             Err(e) => tracing::warn!("Thumbnail task panicked: {e}"),
+        }
+    } else {
+        // Extract a video frame and generate gallery thumbnail
+        let thumb_stem = file_name
+            .rsplit_once('.')
+            .map(|(s, _)| s.to_string())
+            .unwrap_or_else(|| file_name.clone());
+        match crate::video::extract_frame(&file_path).await {
+            Ok(frame_bytes) => {
+                let thumb_dir = upload_dir.to_string();
+                let result = tokio::task::spawn_blocking(move || {
+                    crate::thumbnails::generate_gallery_thumb(
+                        &frame_bytes,
+                        Path::new(&thumb_dir),
+                        &thumb_stem,
+                    )
+                })
+                .await;
+                match result {
+                    Ok(Ok(())) => {}
+                    Ok(Err(e)) => tracing::warn!("Video thumbnail generation failed: {e}"),
+                    Err(e) => tracing::warn!("Video thumbnail task panicked: {e}"),
+                }
+            }
+            Err(e) => tracing::warn!("Video frame extraction failed: {e}"),
         }
     }
 
