@@ -58,17 +58,17 @@ impl Media {
     pub fn into_response(self, tags: Vec<String>) -> MediaResponse {
         let file_url = format!("/api/files/{}", self.file_path);
 
-        let (thumbnail_url, clipboard_url) = if self.media_type != MediaType::Video {
-            let stem = std::path::Path::new(&self.file_path)
-                .file_stem()
-                .and_then(|s| s.to_str())
-                .unwrap_or(&self.file_path);
-            (
-                Some(format!("/api/files/{stem}_thumb.webp")),
-                Some(format!("/api/files/{stem}_clipboard.png")),
-            )
+        let stem = std::path::Path::new(&self.file_path)
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or(&self.file_path);
+
+        let thumbnail_url = Some(format!("/api/files/{stem}_thumb.webp"));
+
+        let clipboard_url = if self.media_type != MediaType::Video {
+            Some(format!("/api/files/{stem}_clipboard.png"))
         } else {
-            (None, None)
+            None
         };
 
         MediaResponse {
