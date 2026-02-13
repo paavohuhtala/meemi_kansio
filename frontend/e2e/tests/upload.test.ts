@@ -74,3 +74,59 @@ e2eTest('shows video preview after selecting file', async ({ uploadPage }) => {
 
   await expect(uploadPage.previewVideo).toBeVisible();
 });
+
+e2eTest('upload JPG returns thumbnail URLs', async ({ page, uploadPage }) => {
+  await uploadPage.goto();
+  await uploadPage.fileInput.setInputFiles(
+    path.join(TEST_DATA_DIR, 'sokerivarasto.jpg'),
+  );
+
+  const responsePromise = page.waitForResponse(
+    (res) => res.url().includes('/api/media/upload') && res.status() === 200,
+  );
+  await uploadPage.submitButton.click();
+  const response = await responsePromise;
+  const data = await response.json();
+
+  expect(data.thumbnail_url).toBeTruthy();
+  expect(data.thumbnail_url).toContain('_thumb.webp');
+  expect(data.clipboard_url).toBeTruthy();
+  expect(data.clipboard_url).toContain('_clipboard.png');
+});
+
+e2eTest('thumbnail files are servable after upload', async ({ page, uploadPage }) => {
+  await uploadPage.goto();
+  await uploadPage.fileInput.setInputFiles(
+    path.join(TEST_DATA_DIR, 'sokerivarasto.jpg'),
+  );
+
+  const responsePromise = page.waitForResponse(
+    (res) => res.url().includes('/api/media/upload') && res.status() === 200,
+  );
+  await uploadPage.submitButton.click();
+  const response = await responsePromise;
+  const data = await response.json();
+
+  const thumbRes = await page.request.get(data.thumbnail_url);
+  expect(thumbRes.ok()).toBe(true);
+
+  const clipboardRes = await page.request.get(data.clipboard_url);
+  expect(clipboardRes.ok()).toBe(true);
+});
+
+e2eTest('upload MP4 does not return thumbnail URLs', async ({ page, uploadPage }) => {
+  await uploadPage.goto();
+  await uploadPage.fileInput.setInputFiles(
+    path.join(TEST_DATA_DIR, 'kitten_horn.mp4'),
+  );
+
+  const responsePromise = page.waitForResponse(
+    (res) => res.url().includes('/api/media/upload') && res.status() === 200,
+  );
+  await uploadPage.submitButton.click();
+  const response = await responsePromise;
+  const data = await response.json();
+
+  expect(data.thumbnail_url).toBeNull();
+  expect(data.clipboard_url).toBeNull();
+});

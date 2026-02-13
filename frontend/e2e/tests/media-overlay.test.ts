@@ -76,19 +76,19 @@ e2eTest.describe('media overlay', () => {
       await page.waitForURL(/\/media\//);
     });
 
-    e2eTest('hides copy button on browse page', async ({ browsePage }) => {
+    e2eTest('shows copy and download on browse page', async ({ browsePage }) => {
       await browsePage.goto();
       await browsePage.gridItems.first().hover();
 
       await expect(browsePage.cardDownloadButton(0)).toBeAttached();
-      await expect(browsePage.cardCopyButton(0)).toHaveCount(0);
+      await expect(browsePage.cardCopyButton(0)).toBeAttached();
     });
 
-    e2eTest('hides copy button on media page', async ({ mediaPage }) => {
+    e2eTest('shows copy and download on media page', async ({ mediaPage }) => {
       await mediaPage.image.hover();
 
       await expect(mediaPage.downloadButton).toBeAttached();
-      await expect(mediaPage.copyButton).toHaveCount(0);
+      await expect(mediaPage.copyButton).toBeAttached();
     });
   });
 });

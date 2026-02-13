@@ -46,3 +46,13 @@ e2eTest('grid shows video with play icon', async ({ page, uploadPage, browsePage
 
   await expect(browsePage.gridVideos()).toHaveCount(1);
 });
+
+e2eTest('gallery images use thumbnail URLs', async ({ page, uploadPage, browsePage }) => {
+  await uploadPage.upload('sokerivarasto.jpg');
+  await page.waitForURL(/\/media\//);
+
+  await browsePage.goto();
+
+  const imgSrc = await browsePage.gridImages().first().getAttribute('src');
+  expect(imgSrc).toContain('_thumb.webp');
+});
