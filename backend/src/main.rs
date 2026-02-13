@@ -4,6 +4,7 @@ mod error;
 mod models;
 mod routes;
 mod thumbnails;
+mod video;
 
 use std::sync::Arc;
 
