@@ -8,7 +8,7 @@ Generate two thumbnail variants for every image/GIF upload to improve gallery lo
 
 | Variant | Max dimension | Format | Quality | Purpose |
 |---------|--------------|--------|---------|---------|
-| `thumb` | 400px | WebP | ~80% | Gallery grid display |
+| `thumb` | 400px | WebP | lossless (image crate limitation) | Gallery grid display |
 | `clipboard` | 1024px | PNG | lossless | Copy-to-clipboard sharing |
 
 ## Processing Rules
