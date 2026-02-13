@@ -37,6 +37,8 @@ pub struct MediaResponse {
     pub description: Option<String>,
     pub media_type: MediaType,
     pub file_url: String,
+    pub thumbnail_url: Option<String>,
+    pub clipboard_url: Option<String>,
     pub file_size: i64,
     pub mime_type: String,
     pub width: Option<i32>,
@@ -55,12 +57,28 @@ pub struct MediaListResponse {
 impl Media {
     pub fn into_response(self, tags: Vec<String>) -> MediaResponse {
         let file_url = format!("/api/files/{}", self.file_path);
+
+        let (thumbnail_url, clipboard_url) = if self.media_type != MediaType::Video {
+            let stem = std::path::Path::new(&self.file_path)
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or(&self.file_path);
+            (
+                Some(format!("/api/files/{stem}_thumb.webp")),
+                Some(format!("/api/files/{stem}_clipboard.png")),
+            )
+        } else {
+            (None, None)
+        };
+
         MediaResponse {
             id: self.id,
             name: self.name,
             description: self.description,
             media_type: self.media_type,
             file_url,
+            thumbnail_url,
+            clipboard_url,
             file_size: self.file_size,
             mime_type: self.mime_type,
             width: self.width,

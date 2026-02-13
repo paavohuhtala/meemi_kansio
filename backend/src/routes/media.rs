@@ -268,6 +268,24 @@ async fn upload(
         (None, None)
     };
 
+    // Generate thumbnails for images and GIFs (best-effort)
+    if media_type != MediaType::Video {
+        let thumb_dir = upload_dir.to_string();
+        let thumb_stem = file_name
+            .rsplit_once('.')
+            .map(|(s, _)| s.to_string())
+            .unwrap_or_else(|| file_name.clone());
+        let result = tokio::task::spawn_blocking(move || {
+            crate::thumbnails::generate(&bytes, Path::new(&thumb_dir), &thumb_stem)
+        })
+        .await;
+        match result {
+            Ok(Ok(())) => {}
+            Ok(Err(e)) => tracing::warn!("Thumbnail generation failed: {e}"),
+            Err(e) => tracing::warn!("Thumbnail task panicked: {e}"),
+        }
+    }
+
     // Filter empty strings to None
     let name = name.filter(|s| !s.trim().is_empty());
     let description = description.filter(|s| !s.trim().is_empty());
@@ -420,9 +438,30 @@ async fn replace_file(
         (None, None)
     };
 
-    // Delete old file from disk (best-effort)
-    let old_path = Path::new(upload_dir).join(&old_media.file_path);
-    let _ = tokio::fs::remove_file(&old_path).await;
+    // Delete old file and thumbnails from disk (best-effort)
+    let upload_dir_path = Path::new(upload_dir);
+    let _ = tokio::fs::remove_file(upload_dir_path.join(&old_media.file_path)).await;
+    for thumb_path in crate::thumbnails::thumbnail_paths(upload_dir_path, &old_media.file_path) {
+        let _ = tokio::fs::remove_file(&thumb_path).await;
+    }
+
+    // Generate thumbnails for images and GIFs (best-effort)
+    if media_type != MediaType::Video {
+        let thumb_dir = upload_dir.to_string();
+        let thumb_stem = file_name
+            .rsplit_once('.')
+            .map(|(s, _)| s.to_string())
+            .unwrap_or_else(|| file_name.clone());
+        let result = tokio::task::spawn_blocking(move || {
+            crate::thumbnails::generate(&bytes, Path::new(&thumb_dir), &thumb_stem)
+        })
+        .await;
+        match result {
+            Ok(Ok(())) => {}
+            Ok(Err(e)) => tracing::warn!("Thumbnail generation failed: {e}"),
+            Err(e) => tracing::warn!("Thumbnail task panicked: {e}"),
+        }
+    }
 
     let media = sqlx::query_as::<_, Media>(
         "UPDATE media SET file_path = $1, file_size = $2, mime_type = $3, media_type = $4,
@@ -454,9 +493,12 @@ async fn delete_media(
         .await?
         .ok_or_else(|| AppError::NotFound("Media not found".into()))?;
 
-    // Delete file from disk (best-effort)
-    let file_path = Path::new(&state.config.upload_dir).join(&media.file_path);
-    let _ = tokio::fs::remove_file(&file_path).await;
+    // Delete file and thumbnails from disk (best-effort)
+    let upload_dir = Path::new(&state.config.upload_dir);
+    let _ = tokio::fs::remove_file(upload_dir.join(&media.file_path)).await;
+    for thumb_path in crate::thumbnails::thumbnail_paths(upload_dir, &media.file_path) {
+        let _ = tokio::fs::remove_file(&thumb_path).await;
+    }
 
     Ok(StatusCode::NO_CONTENT)
 }
