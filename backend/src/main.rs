@@ -3,6 +3,7 @@ mod config;
 mod error;
 mod models;
 mod routes;
+mod thumbnails;
 
 use std::sync::Arc;
 
