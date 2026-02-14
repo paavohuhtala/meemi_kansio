@@ -1,0 +1,10 @@
+/target
+**/*.rs.bk
+Cargo.lock
+*.pdb
+.idea/
+.vscode/
+*.exe
+ocr-*-amd64*
+medivh-mnn/
+3rd_party/

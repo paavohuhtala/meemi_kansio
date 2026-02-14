@@ -12,6 +12,7 @@ export interface MediaItem {
   mime_type: string;
   width: number | null;
   height: number | null;
+  ocr_text: string | null;
   uploaded_by: string;
   created_at: string;
   tags: string[];
@@ -48,7 +49,7 @@ export function listMedia(cursor?: string, tags?: string[]) {
   return apiFetch<MediaPage>(`/media${qs ? `?${qs}` : ''}`);
 }
 
-export function updateMedia(id: string, data: { name?: string; description?: string }) {
+export function updateMedia(id: string, data: { name?: string; description?: string; ocr_text?: string }) {
   return apiFetch<MediaItem>(`/media/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(data),
@@ -70,6 +71,10 @@ export function replaceMediaFile(id: string, file: File) {
 
 export function regenerateThumbnail(id: string) {
   return apiFetch<MediaItem>(`/media/${id}/regenerate-thumbnail`, { method: 'POST' });
+}
+
+export function runOcr(id: string) {
+  return apiFetch<MediaItem>(`/media/${id}/run-ocr`, { method: 'POST' });
 }
 
 export function deleteMedia(id: string) {

@@ -15,6 +15,12 @@ frontend/dist/
 # Data
 uploads/
 
+# OCR models
+backend/models/
+
+# Vendored MNN source (large C++ library, cloned by build)
+vendor/ocr-rs/3rd_party/MNN/
+
 # Playwright
 test-results/
 playwright-report/

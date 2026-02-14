@@ -7,6 +7,7 @@ pub struct Config {
     pub upload_dir: String,
     pub jwt_secret: String,
     pub static_dir: Option<String>,
+    pub model_dir: String,
 }
 
 impl Config {
@@ -23,6 +24,7 @@ impl Config {
             jwt_secret: env::var("JWT_SECRET")
                 .unwrap_or_else(|_| "dev-secret-change-in-production".to_string()),
             static_dir: env::var("STATIC_DIR").ok(),
+            model_dir: env::var("MODEL_DIR").unwrap_or_else(|_| "./models".to_string()),
         }
     }
 }

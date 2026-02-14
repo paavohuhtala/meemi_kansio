@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import styled from 'styled-components';
-import { deleteMedia, getMedia, regenerateThumbnail, replaceMediaFile, setMediaTags, updateMedia, type MediaItem } from '../api/media';
+import { deleteMedia, getMedia, regenerateThumbnail, replaceMediaFile, runOcr, setMediaTags, updateMedia, type MediaItem } from '../api/media';
 import {
   Button,
   Media,
@@ -115,6 +115,13 @@ const Description = styled.textarea<{ $editing: boolean }>`
   }
 `;
 
+const SectionLabel = styled.label`
+  display: block;
+  font-size: ${({ theme }) => theme.fontSize.sm};
+  color: ${({ theme }) => theme.colors.textSecondary};
+  margin-bottom: ${({ theme }) => theme.spacing.xs};
+`;
+
 const Meta = styled.p`
   color: ${({ theme }) => theme.colors.textSecondary};
   font-size: ${({ theme }) => theme.fontSize.sm};
@@ -135,8 +142,10 @@ export function MediaPage() {
 
   const [editName, setEditName] = useState('');
   const [editDescription, setEditDescription] = useState('');
+  const [editOcrText, setEditOcrText] = useState('');
   const [editingTitle, setEditingTitle] = useState(false);
   const [editingDescription, setEditingDescription] = useState(false);
+  const [editingOcrText, setEditingOcrText] = useState(false);
 
   const { data: media, isLoading, error } = useQuery({
     queryKey: ['media', id],
@@ -145,7 +154,7 @@ export function MediaPage() {
   });
 
   const metaMutation = useMutation({
-    mutationFn: (data: { name?: string; description?: string }) =>
+    mutationFn: (data: { name?: string; description?: string; ocr_text?: string }) =>
       updateMedia(id!, data),
     onMutate: async (data) => {
       await queryClient.cancelQueries({ queryKey: ['media', id] });
@@ -219,6 +228,17 @@ export function MediaPage() {
     },
   });
 
+  const ocrMutation = useMutation({
+    mutationFn: () => runOcr(id!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['media', id] });
+      toast('OCR completed');
+    },
+    onError: () => {
+      toast('OCR failed', 'error');
+    },
+  });
+
   if (isLoading) return <Container>Loading...</Container>;
   if (error) return <Container>Failed to load media.</Container>;
   if (!media) return <Container>Not found.</Container>;
@@ -264,6 +284,28 @@ export function MediaPage() {
       saveDescription();
     } else if (e.key === 'Escape') {
       setEditingDescription(false);
+    }
+  }
+
+  function handleOcrTextClick() {
+    setEditOcrText(media!.ocr_text ?? '');
+    setEditingOcrText(true);
+  }
+
+  function saveOcrText() {
+    setEditingOcrText(false);
+    const trimmed = editOcrText.trim();
+    if (trimmed !== (media!.ocr_text ?? '')) {
+      metaMutation.mutate({ ocr_text: trimmed });
+    }
+  }
+
+  function handleOcrTextKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      saveOcrText();
+    } else if (e.key === 'Escape') {
+      setEditingOcrText(false);
     }
   }
 
@@ -326,6 +368,19 @@ export function MediaPage() {
         data-testid={editingDescription ? 'edit-description' : 'description'}
       />
 
+      <SectionLabel>Recognized text</SectionLabel>
+      <Description
+        $editing={editingOcrText}
+        value={editingOcrText ? editOcrText : (media.ocr_text ?? '')}
+        placeholder="No text recognized"
+        readOnly={!editingOcrText}
+        onClick={!editingOcrText ? handleOcrTextClick : undefined}
+        onChange={editingOcrText ? (e) => setEditOcrText(e.target.value) : undefined}
+        onKeyDown={editingOcrText ? handleOcrTextKeyDown : undefined}
+        onBlur={editingOcrText ? saveOcrText : undefined}
+        data-testid={editingOcrText ? 'edit-ocr-text' : 'ocr-text'}
+      />
+
       <Meta>
         Uploaded {new Date(media.created_at).toLocaleDateString()}
       </Meta>
@@ -351,6 +406,13 @@ export function MediaPage() {
           data-testid="regenerate-thumbnail"
         >
           Regenerate thumbnail
+        </Button>
+        <Button
+          onClick={() => ocrMutation.mutate()}
+          loading={ocrMutation.isPending}
+          data-testid="run-ocr"
+        >
+          Run OCR
         </Button>
         <AlertDialogRoot>
           <AlertDialogTrigger asChild>

@@ -90,6 +90,7 @@ pub fn router(upload_dir: &str) -> Router<AppState> {
         )
         .route("/api/media/{id}/tags", put(set_tags))
         .route("/api/media/{id}/regenerate-thumbnail", post(regenerate_thumbnail))
+        .route("/api/media/{id}/run-ocr", post(run_ocr))
         .nest_service("/api/files", ServeDir::new(upload_dir))
 }
 
@@ -354,6 +355,17 @@ async fn upload(
         vec![]
     };
 
+    // Spawn background OCR task
+    if let Some(ref ocr_engine) = state.ocr {
+        let ocr_file = if media_type == MediaType::Video {
+            let stem = file_name.rsplit_once('.').map(|(s, _)| s).unwrap_or(&file_name);
+            Path::new(upload_dir).join(format!("{stem}_thumb.webp"))
+        } else {
+            Path::new(upload_dir).join(&file_name)
+        };
+        crate::ocr::spawn_ocr_task(ocr_engine.clone(), state.db.clone(), media.id, ocr_file);
+    }
+
     Ok(Json(media.into_response(tags)))
 }
 
@@ -376,6 +388,7 @@ async fn get_media(
 struct UpdateMediaRequest {
     name: Option<String>,
     description: Option<String>,
+    ocr_text: Option<String>,
 }
 
 async fn update_media(
@@ -386,20 +399,25 @@ async fn update_media(
 ) -> Result<Json<MediaResponse>, AppError> {
     let has_name = body.name.is_some();
     let has_description = body.description.is_some();
+    let has_ocr_text = body.ocr_text.is_some();
     let name = body.name.filter(|s| !s.trim().is_empty());
     let description = body.description.filter(|s| !s.trim().is_empty());
+    let ocr_text = body.ocr_text.filter(|s| !s.trim().is_empty());
 
     let media = sqlx::query_as::<_, Media>(
         "UPDATE media SET
            name = CASE WHEN $1 THEN $2 ELSE name END,
            description = CASE WHEN $3 THEN $4 ELSE description END,
+           ocr_text = CASE WHEN $5 THEN $6 ELSE ocr_text END,
            updated_at = NOW()
-         WHERE id = $5 RETURNING *",
+         WHERE id = $7 RETURNING *",
     )
     .bind(has_name)
     .bind(&name)
     .bind(has_description)
     .bind(&description)
+    .bind(has_ocr_text)
+    .bind(&ocr_text)
     .bind(id)
     .fetch_optional(&state.db)
     .await?
@@ -512,7 +530,7 @@ async fn replace_file(
 
     let media = sqlx::query_as::<_, Media>(
         "UPDATE media SET file_path = $1, file_size = $2, mime_type = $3, media_type = $4,
-         width = $5, height = $6, updated_at = NOW()
+         width = $5, height = $6, ocr_text = NULL, updated_at = NOW()
          WHERE id = $7 RETURNING *",
     )
     .bind(&file_name)
@@ -524,6 +542,17 @@ async fn replace_file(
     .bind(id)
     .fetch_one(&state.db)
     .await?;
+
+    // Spawn background OCR task for the new file
+    if let Some(ref ocr_engine) = state.ocr {
+        let ocr_file = if media_type == MediaType::Video {
+            let stem = file_name.rsplit_once('.').map(|(s, _)| s).unwrap_or(&file_name);
+            Path::new(upload_dir).join(format!("{stem}_thumb.webp"))
+        } else {
+            Path::new(upload_dir).join(&file_name)
+        };
+        crate::ocr::spawn_ocr_task(ocr_engine.clone(), state.db.clone(), media.id, ocr_file);
+    }
 
     let tags = fetch_tags(&state.db, media.id).await?;
     Ok(Json(media.into_response(tags)))
@@ -593,6 +622,55 @@ async fn regenerate_thumbnail(
     } else {
         generate_video_thumbnail(&file_path, upload_dir, &media.file_path).await;
     }
+
+    let tags = fetch_tags(&state.db, media.id).await?;
+    Ok(Json(media.into_response(tags)))
+}
+
+async fn run_ocr(
+    State(state): State<AppState>,
+    _auth: AuthUser,
+    axum::extract::Path(id): axum::extract::Path<Uuid>,
+) -> Result<Json<MediaResponse>, AppError> {
+    let ocr_engine = state
+        .ocr
+        .as_ref()
+        .ok_or_else(|| AppError::BadRequest("OCR is not available".into()))?;
+
+    let media = sqlx::query_as::<_, Media>("SELECT * FROM media WHERE id = $1")
+        .bind(id)
+        .fetch_optional(&state.db)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Media not found".into()))?;
+
+    let upload_dir = &state.config.upload_dir;
+    let ocr_file = if media.media_type == MediaType::Video {
+        let stem = media
+            .file_path
+            .rsplit_once('.')
+            .map(|(s, _)| s)
+            .unwrap_or(&media.file_path);
+        Path::new(upload_dir).join(format!("{stem}_thumb.webp"))
+    } else {
+        Path::new(upload_dir).join(&media.file_path)
+    };
+
+    let bytes = tokio::fs::read(&ocr_file)
+        .await
+        .map_err(|e| AppError::Internal(format!("Failed to read file for OCR: {e}")))?;
+
+    let engine = ocr_engine.clone();
+    let ocr_text = tokio::task::spawn_blocking(move || crate::ocr::recognize(&engine, &bytes))
+        .await
+        .map_err(|e| AppError::Internal(format!("OCR task panicked: {e}")))?;
+
+    let media = sqlx::query_as::<_, Media>(
+        "UPDATE media SET ocr_text = $1, updated_at = NOW() WHERE id = $2 RETURNING *",
+    )
+    .bind(&ocr_text)
+    .bind(id)
+    .fetch_one(&state.db)
+    .await?;
 
     let tags = fetch_tags(&state.db, media.id).await?;
     Ok(Json(media.into_response(tags)))

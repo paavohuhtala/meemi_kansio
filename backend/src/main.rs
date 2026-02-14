@@ -2,6 +2,7 @@ mod auth;
 mod config;
 mod error;
 mod models;
+pub mod ocr;
 mod routes;
 mod thumbnails;
 mod video;
@@ -10,6 +11,7 @@ use std::sync::Arc;
 
 use axum::{extract::State, routing::get, Json, Router};
 use config::Config;
+use ocr_rs::OcrEngine;
 use sqlx::PgPool;
 use tower_http::cors::CorsLayer;
 use tower_http::services::{ServeDir, ServeFile};
@@ -20,6 +22,7 @@ use tracing_subscriber::EnvFilter;
 pub struct AppState {
     pub db: PgPool,
     pub config: Arc<Config>,
+    pub ocr: Option<Arc<OcrEngine>>,
 }
 
 async fn health(State(state): State<AppState>) -> Json<serde_json::Value> {
@@ -45,9 +48,12 @@ async fn main() {
         .await
         .expect("failed to run migrations");
 
+    let ocr = ocr::init_engine(&config.model_dir);
+
     let state = AppState {
         db,
         config: Arc::new(config),
+        ocr,
     };
 
     let mut app = Router::new()
