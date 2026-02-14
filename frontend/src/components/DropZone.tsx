@@ -2,11 +2,23 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { UploadIcon } from '@radix-ui/react-icons';
 import styled, { css } from 'styled-components';
 
-interface DropZoneProps {
-  value: File | null;
-  onChange: (file: File) => void;
+interface DropZoneBaseProps {
   accept: string[];
 }
+
+interface DropZoneSingleProps extends DropZoneBaseProps {
+  multiple?: false;
+  value: File | null;
+  onChange: (file: File) => void;
+}
+
+interface DropZoneMultiProps extends DropZoneBaseProps {
+  multiple: true;
+  value: File[];
+  onChange: (files: File[]) => void;
+}
+
+type DropZoneProps = DropZoneSingleProps | DropZoneMultiProps;
 
 const Container = styled.div<{ $dragOver: boolean; $hasFile: boolean }>`
   position: relative;
@@ -57,6 +69,33 @@ const PlaceholderText = styled.span`
   font-size: ${({ theme }) => theme.fontSize.sm};
 `;
 
+const FileList = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.xs};
+  padding: ${({ theme }) => theme.spacing.lg};
+  color: ${({ theme }) => theme.colors.text};
+  width: 100%;
+`;
+
+const FileCount = styled.span`
+  font-size: ${({ theme }) => theme.fontSize.lg};
+  font-weight: 600;
+`;
+
+const FileNames = styled.ul`
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: ${({ theme }) => theme.fontSize.sm};
+  color: ${({ theme }) => theme.colors.textSecondary};
+  text-align: center;
+  max-height: 200px;
+  overflow-y: auto;
+  width: 100%;
+`;
+
 const PreviewImage = styled.img`
   display: block;
   max-width: 100%;
@@ -99,24 +138,38 @@ function isVideoType(file: File): boolean {
   return file.type.startsWith('video/');
 }
 
-export function DropZone({ value, onChange, accept }: DropZoneProps) {
+function dedupeFiles(existing: File[], incoming: File[]): File[] {
+  const seen = new Set(existing.map((f) => `${f.name}:${f.size}`));
+  const newFiles = incoming.filter((f) => !seen.has(`${f.name}:${f.size}`));
+  return [...existing, ...newFiles];
+}
+
+export function DropZone(props: DropZoneProps) {
+  const { accept } = props;
+  const isMulti = props.multiple === true;
   const [dragOver, setDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Single-file preview URL
+  const singleFile = !isMulti ? props.value : null;
   const previewUrl = useMemo(() => {
-    return value ? URL.createObjectURL(value) : null;
-  }, [value]);
+    return singleFile ? URL.createObjectURL(singleFile) : null;
+  }, [singleFile]);
 
-  // Revoke object URL on change or unmount
   useEffect(() => {
     return () => {
       if (previewUrl) URL.revokeObjectURL(previewUrl);
     };
   }, [previewUrl]);
 
-  function handleFile(file: File) {
-    if (isAcceptedType(file, accept)) {
-      onChange(file);
+  function handleFiles(fileList: FileList) {
+    const accepted = Array.from(fileList).filter((f) => isAcceptedType(f, accept));
+    if (accepted.length === 0) return;
+
+    if (isMulti) {
+      props.onChange(dedupeFiles(props.value, accepted));
+    } else {
+      props.onChange(accepted[0]);
     }
   }
 
@@ -125,8 +178,9 @@ export function DropZone({ value, onChange, accept }: DropZoneProps) {
   }
 
   function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (file) handleFile(file);
+    if (e.target.files && e.target.files.length > 0) {
+      handleFiles(e.target.files);
+    }
     e.target.value = '';
   }
 
@@ -143,19 +197,24 @@ export function DropZone({ value, onChange, accept }: DropZoneProps) {
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
     setDragOver(false);
-    const file = e.dataTransfer.files[0];
-    if (file) handleFile(file);
+    if (e.dataTransfer.files.length > 0) {
+      handleFiles(e.dataTransfer.files);
+    }
   }
 
   function handlePaste(e: React.ClipboardEvent) {
-    const file = e.clipboardData.files[0];
-    if (file) handleFile(file);
+    if (e.clipboardData.files.length > 0) {
+      handleFiles(e.clipboardData.files);
+    }
   }
+
+  const hasFiles = isMulti ? props.value.length > 0 : !!props.value;
+  const multiFiles = isMulti ? props.value : [];
 
   return (
     <Container
       $dragOver={dragOver}
-      $hasFile={!!value}
+      $hasFile={hasFiles}
       onClick={handleClick}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
@@ -169,10 +228,23 @@ export function DropZone({ value, onChange, accept }: DropZoneProps) {
         type="file"
         accept={accept.join(',')}
         onChange={handleInputChange}
+        multiple={isMulti}
       />
-      {value && previewUrl ? (
+      {isMulti && multiFiles.length > 0 ? (
         <>
-          {isVideoType(value) ? (
+          <FileList>
+            <FileCount>{multiFiles.length} {multiFiles.length === 1 ? 'file' : 'files'} selected</FileCount>
+            <FileNames>
+              {multiFiles.map((f, i) => (
+                <li key={`${f.name}-${f.size}-${i}`}>{f.name}</li>
+              ))}
+            </FileNames>
+          </FileList>
+          <ChangeOverlay>Drop to add more files</ChangeOverlay>
+        </>
+      ) : singleFile && previewUrl ? (
+        <>
+          {isVideoType(singleFile) ? (
             <PreviewVideo
               src={previewUrl}
               controls
@@ -192,7 +264,7 @@ export function DropZone({ value, onChange, accept }: DropZoneProps) {
         <Placeholder>
           <UploadIcon />
           <PlaceholderText>
-            Drop file here, paste, or click to browse
+            Drop files here, paste, or click to browse
           </PlaceholderText>
         </Placeholder>
       )}
