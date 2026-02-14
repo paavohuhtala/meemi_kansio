@@ -98,4 +98,31 @@ e2eTest.describe('drag-drop and paste upload', () => {
       await expect(uploadPage.previewImage).toBeVisible();
     },
   );
+
+  e2eTest(
+    'dropping multiple files on browse page navigates to upload with all files',
+    async ({ browsePage, page }) => {
+      await browsePage.goto();
+      await browsePage.emptyState.waitFor({ state: 'visible' });
+
+      const { readFile } = await import('node:fs/promises');
+      const { resolve } = await import('node:path');
+      const testDir = resolve(import.meta.dirname, '..', '..', '..', 'test_data', 'memes');
+
+      const jpg = await readFile(resolve(testDir, 'sokerivarasto.jpg'));
+      const png = await readFile(resolve(testDir, 'markus.png'));
+
+      await page.evaluate(([jpgData, pngData]) => {
+        const file1 = new File([new Uint8Array(jpgData)], 'sokerivarasto.jpg', { type: 'image/jpeg' });
+        const file2 = new File([new Uint8Array(pngData)], 'markus.png', { type: 'image/png' });
+        const dt = new DataTransfer();
+        dt.items.add(file1);
+        dt.items.add(file2);
+        document.dispatchEvent(new DragEvent('drop', { bubbles: true, dataTransfer: dt }));
+      }, [Array.from(jpg), Array.from(png)]);
+
+      await expect(page).toHaveURL('/upload');
+      await expect(page.getByText('2 files selected')).toBeVisible();
+    },
+  );
 });

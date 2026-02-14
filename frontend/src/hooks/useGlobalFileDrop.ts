@@ -21,10 +21,11 @@ export function useGlobalFileDrop(acceptedTypes: string[]) {
 
   const isUploadPage = location.pathname === '/upload';
 
-  const handleFile = useCallback(
-    (file: File) => {
-      if (isAcceptedType(file, acceptedTypes)) {
-        navigate('/upload', { state: { file } });
+  const handleFiles = useCallback(
+    (files: File[]) => {
+      const accepted = files.filter((f) => isAcceptedType(f, acceptedTypes));
+      if (accepted.length > 0) {
+        navigate('/upload', { state: { files: accepted } });
       }
     },
     [acceptedTypes, navigate],
@@ -58,8 +59,10 @@ export function useGlobalFileDrop(acceptedTypes: string[]) {
       e.preventDefault();
       counterRef.current = 0;
       setIsDragging(false);
-      const file = e.dataTransfer?.files[0];
-      if (file) handleFile(file);
+      const files = e.dataTransfer?.files;
+      if (files && files.length > 0) {
+        handleFiles(Array.from(files));
+      }
     }
 
     function handlePaste(e: ClipboardEvent) {
@@ -67,7 +70,7 @@ export function useGlobalFileDrop(acceptedTypes: string[]) {
       const file = e.clipboardData?.files[0];
       if (file && isAcceptedType(file, acceptedTypes)) {
         e.preventDefault();
-        handleFile(file);
+        handleFiles([file]);
       }
     }
 
@@ -85,7 +88,7 @@ export function useGlobalFileDrop(acceptedTypes: string[]) {
       document.removeEventListener('paste', handlePaste);
       counterRef.current = 0;
     };
-  }, [isUploadPage, handleFile, acceptedTypes]);
+  }, [isUploadPage, handleFiles, acceptedTypes]);
 
   return { isDragging };
 }
