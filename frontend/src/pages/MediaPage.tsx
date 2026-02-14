@@ -91,7 +91,13 @@ const TitleInput = styled.input`
 `;
 
 const Description = styled.textarea<{ $editing: boolean }>`
-  all: unset;
+  appearance: none;
+  border: none;
+  background: none;
+  padding: 0;
+  margin: 0;
+  outline: none;
+  font: inherit;
   display: block;
   font-size: ${({ theme }) => theme.fontSize.md};
   color: ${({ theme, $editing }) => $editing ? theme.colors.text : theme.colors.textSecondary};
@@ -359,6 +365,7 @@ export function MediaPage() {
       <Description
         $editing={editingDescription}
         value={editingDescription ? editDescription : (media.description ?? '')}
+        rows={(editingDescription ? editDescription : (media.description ?? '')).split('\n').length}
         placeholder="Click to add a description"
         readOnly={!editingDescription}
         onClick={!editingDescription ? handleDescriptionClick : undefined}
@@ -372,6 +379,7 @@ export function MediaPage() {
       <Description
         $editing={editingOcrText}
         value={editingOcrText ? editOcrText : (media.ocr_text ?? '')}
+        rows={(editingOcrText ? editOcrText : (media.ocr_text ?? '')).split('\n').length}
         placeholder="No text recognized"
         readOnly={!editingOcrText}
         onClick={!editingOcrText ? handleOcrTextClick : undefined}
