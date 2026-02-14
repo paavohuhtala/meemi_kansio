@@ -289,7 +289,7 @@ fn build_mnn_with_cmake(
         config.define("MNN_VULKAN", "ON");
     }
 
-    println!("cargo:rerun-if-changed=MNN/CMakeLists.txt");
+    println!("cargo:rerun-if-changed=3rd_party/MNN/CMakeLists.txt");
 
     config.build()
 }
