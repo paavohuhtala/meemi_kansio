@@ -36,3 +36,74 @@ e2eTest('clicking result thumbnail navigates to media page', async ({ uploadPage
   await expect(uploadPage.resultsGrid).not.toBeVisible();
   await expect(mediaPage.image).toBeVisible();
 });
+
+e2eTest('shows error for failed upload with retry button', async ({ uploadPage, page }) => {
+  // Fail the second upload request
+  let requestCount = 0;
+  await page.route('**/api/media/upload', (route) => {
+    requestCount++;
+    if (requestCount === 2) {
+      route.fulfill({
+        status: 500,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'Server error' }),
+      });
+    } else {
+      route.continue();
+    }
+  });
+
+  await uploadPage.goto();
+  await uploadPage.selectFiles(['sokerivarasto.jpg', 'markus.png']);
+  await uploadPage.submitButton.click();
+
+  // Wait for both to settle
+  await expect(uploadPage.resultCards).toHaveCount(2);
+  // One succeeds (has a link), one fails (has retry button)
+  await expect(uploadPage.resultCardLinks()).toHaveCount(1);
+  await expect(page.getByTestId('retry-button')).toBeVisible();
+});
+
+e2eTest('retry recovers failed upload', async ({ uploadPage, page }) => {
+  let requestCount = 0;
+  await page.route('**/api/media/upload', (route) => {
+    requestCount++;
+    if (requestCount === 2) {
+      route.fulfill({
+        status: 500,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'Server error' }),
+      });
+    } else {
+      route.continue();
+    }
+  });
+
+  await uploadPage.goto();
+  await uploadPage.selectFiles(['sokerivarasto.jpg', 'markus.png']);
+  await uploadPage.submitButton.click();
+
+  // Wait for failure card
+  await expect(page.getByTestId('retry-button')).toBeVisible();
+
+  // Remove route intercept so retry succeeds
+  await page.unroute('**/api/media/upload');
+
+  await page.getByTestId('retry-button').click();
+
+  // Both should now be successful
+  await expect(uploadPage.resultCardLinks()).toHaveCount(2);
+});
+
+e2eTest('upload more resets to selection', async ({ uploadPage }) => {
+  await uploadPage.goto();
+  await uploadPage.selectFiles(['sokerivarasto.jpg', 'markus.png']);
+  await uploadPage.submitButton.click();
+
+  await expect(uploadPage.resultCardLinks()).toHaveCount(2);
+  await uploadPage.uploadMoreButton.click();
+
+  // Back to selection: drop zone visible, no results grid
+  await expect(uploadPage.dropZone).toBeVisible();
+  await expect(uploadPage.resultsGrid).not.toBeVisible();
+});
