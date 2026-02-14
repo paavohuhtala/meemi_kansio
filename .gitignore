@@ -18,7 +18,7 @@ uploads/
 # OCR models
 backend/models/
 
-# Vendored MNN source (large C++ library, cloned by build)
+# Vendored MNN C++ source (cloned during ocr-rs build)
 vendor/ocr-rs/3rd_party/MNN/
 
 # Playwright

@@ -27,6 +27,9 @@ fn main() {
     // Get or download MNN source code
     let mnn_source_dir = get_mnn_source(&manifest_dir_path);
 
+    // Patch MNN source if needed (OpType_LinearAttention missing from MNN_generated.h)
+    patch_mnn_source(&mnn_source_dir);
+
     // Build MNN using cmake
     let dst = build_mnn_with_cmake(
         &mnn_source_dir,
@@ -58,6 +61,21 @@ fn main() {
 
     // Generate Rust bindings
     bind_gen(&manifest_dir_path, &mnn_source_dir, &dst, &os, &arch);
+}
+
+fn patch_mnn_source(mnn_source_dir: &PathBuf) {
+    let file = mnn_source_dir.join("express/module/StaticModule.cpp");
+    if !file.exists() {
+        return;
+    }
+    let content = fs::read_to_string(&file).expect("Failed to read StaticModule.cpp");
+    if content.contains("OpType_LinearAttention") {
+        let patched = content.replace("case MNN::OpType_LinearAttention:\n", "");
+        if patched != content {
+            fs::write(&file, patched).expect("Failed to patch StaticModule.cpp");
+            println!("cargo:warning=Patched StaticModule.cpp: removed OpType_LinearAttention reference");
+        }
+    }
 }
 
 /// Get MNN source code directory
