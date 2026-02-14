@@ -107,3 +107,10 @@ e2eTest('upload more resets to selection', async ({ uploadPage }) => {
   await expect(uploadPage.dropZone).toBeVisible();
   await expect(uploadPage.resultsGrid).not.toBeVisible();
 });
+
+e2eTest('single file upload still navigates to media page', async ({ uploadPage, page, mediaPage }) => {
+  await uploadPage.upload('sokerivarasto.jpg');
+
+  await expect(page).toHaveURL(/\/media\//);
+  await expect(mediaPage.image).toBeVisible();
+});
