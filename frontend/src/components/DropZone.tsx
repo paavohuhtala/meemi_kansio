@@ -150,11 +150,12 @@ export function DropZone(props: DropZoneProps) {
   const [dragOver, setDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Single-file preview URL
-  const singleFile = !isMulti ? props.value : null;
+  // Preview: show image/video for single mode OR multi mode with exactly 1 file
+  const multiFiles = isMulti ? props.value : [];
+  const previewFile = !isMulti ? props.value : (multiFiles.length === 1 ? multiFiles[0] : null);
   const previewUrl = useMemo(() => {
-    return singleFile ? URL.createObjectURL(singleFile) : null;
-  }, [singleFile]);
+    return previewFile ? URL.createObjectURL(previewFile) : null;
+  }, [previewFile]);
 
   useEffect(() => {
     return () => {
@@ -209,7 +210,6 @@ export function DropZone(props: DropZoneProps) {
   }
 
   const hasFiles = isMulti ? props.value.length > 0 : !!props.value;
-  const multiFiles = isMulti ? props.value : [];
 
   return (
     <Container
@@ -230,7 +230,7 @@ export function DropZone(props: DropZoneProps) {
         onChange={handleInputChange}
         multiple={isMulti}
       />
-      {isMulti && multiFiles.length > 0 ? (
+      {isMulti && multiFiles.length > 1 ? (
         <>
           <FileList>
             <FileCount>{multiFiles.length} {multiFiles.length === 1 ? 'file' : 'files'} selected</FileCount>
@@ -242,9 +242,9 @@ export function DropZone(props: DropZoneProps) {
           </FileList>
           <ChangeOverlay>Drop to add more files</ChangeOverlay>
         </>
-      ) : singleFile && previewUrl ? (
+      ) : previewFile && previewUrl ? (
         <>
-          {isVideoType(singleFile) ? (
+          {isVideoType(previewFile) ? (
             <PreviewVideo
               src={previewUrl}
               controls
