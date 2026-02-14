@@ -89,6 +89,7 @@ pub fn router(upload_dir: &str) -> Router<AppState> {
             get(get_media).patch(update_media).delete(delete_media),
         )
         .route("/api/media/{id}/tags", put(set_tags))
+        .route("/api/media/{id}/regenerate-thumbnail", post(regenerate_thumbnail))
         .nest_service("/api/files", ServeDir::new(upload_dir))
 }
 
@@ -547,6 +548,54 @@ async fn delete_media(
     }
 
     Ok(StatusCode::NO_CONTENT)
+}
+
+async fn regenerate_thumbnail(
+    State(state): State<AppState>,
+    _auth: AuthUser,
+    axum::extract::Path(id): axum::extract::Path<Uuid>,
+) -> Result<Json<MediaResponse>, AppError> {
+    let media = sqlx::query_as::<_, Media>("SELECT * FROM media WHERE id = $1")
+        .bind(id)
+        .fetch_optional(&state.db)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Media not found".into()))?;
+
+    let upload_dir = &state.config.upload_dir;
+    let upload_dir_path = Path::new(upload_dir);
+    let file_path = upload_dir_path.join(&media.file_path);
+
+    // Delete existing thumbnails
+    for thumb_path in crate::thumbnails::thumbnail_paths(upload_dir_path, &media.file_path) {
+        let _ = tokio::fs::remove_file(&thumb_path).await;
+    }
+
+    // Regenerate
+    if media.media_type != MediaType::Video {
+        let bytes = tokio::fs::read(&file_path)
+            .await
+            .map_err(|e| AppError::Internal(format!("Failed to read media file: {e}")))?;
+        let thumb_dir = upload_dir.to_string();
+        let thumb_stem = media
+            .file_path
+            .rsplit_once('.')
+            .map(|(s, _)| s.to_string())
+            .unwrap_or_else(|| media.file_path.clone());
+        let result = tokio::task::spawn_blocking(move || {
+            crate::thumbnails::generate(&bytes, Path::new(&thumb_dir), &thumb_stem)
+        })
+        .await;
+        match result {
+            Ok(Ok(())) => {}
+            Ok(Err(e)) => return Err(AppError::Internal(format!("Thumbnail generation failed: {e}"))),
+            Err(e) => return Err(AppError::Internal(format!("Thumbnail task panicked: {e}"))),
+        }
+    } else {
+        generate_video_thumbnail(&file_path, upload_dir, &media.file_path).await;
+    }
+
+    let tags = fetch_tags(&state.db, media.id).await?;
+    Ok(Json(media.into_response(tags)))
 }
 
 #[derive(Debug, Deserialize)]

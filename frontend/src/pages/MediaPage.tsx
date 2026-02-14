@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import styled from 'styled-components';
-import { deleteMedia, getMedia, replaceMediaFile, setMediaTags, updateMedia, type MediaItem } from '../api/media';
+import { deleteMedia, getMedia, regenerateThumbnail, replaceMediaFile, setMediaTags, updateMedia, type MediaItem } from '../api/media';
 import {
   Button,
   Media,
@@ -207,6 +207,18 @@ export function MediaPage() {
     },
   });
 
+  const regenMutation = useMutation({
+    mutationFn: () => regenerateThumbnail(id!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['media', id] });
+      queryClient.invalidateQueries({ queryKey: ['media-list'] });
+      toast('Thumbnail regenerated');
+    },
+    onError: () => {
+      toast('Failed to regenerate thumbnail', 'error');
+    },
+  });
+
   if (isLoading) return <Container>Loading...</Container>;
   if (error) return <Container>Failed to load media.</Container>;
   if (!media) return <Container>Not found.</Container>;
@@ -333,6 +345,13 @@ export function MediaPage() {
           onChange={handleFileChange}
           accept="image/*,video/*"
         />
+        <Button
+          onClick={() => regenMutation.mutate()}
+          loading={regenMutation.isPending}
+          data-testid="regenerate-thumbnail"
+        >
+          Regenerate thumbnail
+        </Button>
         <AlertDialogRoot>
           <AlertDialogTrigger asChild>
             <Button variant="danger" data-testid="delete-button">

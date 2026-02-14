@@ -30,6 +30,14 @@ const Grid = styled.div`
   ${bp.xl} {
     column-count: 4;
   }
+
+  ${bp.xxl} {
+    column-count: 5;
+  }
+
+  ${bp.xxxl} {
+    column-count: 6;
+  }
 `;
 
 const Card = styled.div`

@@ -68,6 +68,10 @@ export function replaceMediaFile(id: string, file: File) {
   return apiFetchFormData<MediaItem>(`/media/${id}/file`, form, 'PUT');
 }
 
+export function regenerateThumbnail(id: string) {
+  return apiFetch<MediaItem>(`/media/${id}/regenerate-thumbnail`, { method: 'POST' });
+}
+
 export function deleteMedia(id: string) {
   return apiFetch<void>(`/media/${id}`, { method: 'DELETE' });
 }

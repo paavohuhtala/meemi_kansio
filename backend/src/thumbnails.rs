@@ -6,7 +6,7 @@ use image::{DynamicImage, ImageReader};
 
 use crate::error::AppError;
 
-const THUMB_MAX_DIM: u32 = 400;
+const THUMB_MAX_DIM: u32 = 600;
 const CLIPBOARD_MAX_DIM: u32 = 1024;
 
 /// Resize an image so its longest dimension is at most `max_dim`.
