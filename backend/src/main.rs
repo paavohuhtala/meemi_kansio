@@ -4,6 +4,7 @@ mod error;
 mod models;
 pub mod ocr;
 mod routes;
+mod storage;
 mod thumbnails;
 mod video;
 
@@ -13,6 +14,7 @@ use axum::{extract::State, routing::get, Json, Router};
 use config::Config;
 use ocr_rs::OcrEngine;
 use sqlx::PgPool;
+use storage::{LocalStorage, StorageBackend};
 use tower_http::cors::CorsLayer;
 use tower_http::services::{ServeDir, ServeFile};
 use tower_http::trace::TraceLayer;
@@ -23,6 +25,7 @@ pub struct AppState {
     pub db: PgPool,
     pub config: Arc<Config>,
     pub ocr: Option<Arc<OcrEngine>>,
+    pub storage: StorageBackend,
 }
 
 async fn health(State(state): State<AppState>) -> Json<serde_json::Value> {
@@ -49,19 +52,26 @@ async fn main() {
         .expect("failed to run migrations");
 
     let ocr = ocr::init_engine(&config.model_dir);
+    let storage = StorageBackend::Local(LocalStorage::new(&config.upload_dir));
 
     let state = AppState {
         db,
         config: Arc::new(config),
         ocr,
+        storage,
     };
 
     let mut app = Router::new()
         .route("/api/health", get(health))
-        .merge(routes::api_router(&state.config.upload_dir))
+        .merge(routes::api_router())
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http())
         .with_state(state.clone());
+
+    // Serve uploaded files from local disk when using local storage
+    if let Some(upload_dir) = state.storage.local_upload_dir() {
+        app = app.nest_service("/api/files", ServeDir::new(upload_dir));
+    }
 
     // Serve static frontend files when STATIC_DIR is set
     if let Some(static_dir) = &state.config.static_dir {

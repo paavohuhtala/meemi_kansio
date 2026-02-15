@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use uuid::Uuid;
 
+use crate::storage::StorageBackend;
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
 #[sqlx(type_name = "media_type", rename_all = "lowercase")]
 #[serde(rename_all = "lowercase")]
@@ -57,18 +59,18 @@ pub struct MediaListResponse {
 }
 
 impl Media {
-    pub fn into_response(self, tags: Vec<String>) -> MediaResponse {
-        let file_url = format!("/api/files/{}", self.file_path);
+    pub fn into_response(self, tags: Vec<String>, storage: &StorageBackend) -> MediaResponse {
+        let file_url = storage.public_url(&self.file_path);
 
         let stem = std::path::Path::new(&self.file_path)
             .file_stem()
             .and_then(|s| s.to_str())
             .unwrap_or(&self.file_path);
 
-        let thumbnail_url = Some(format!("/api/files/{stem}_thumb.webp"));
+        let thumbnail_url = Some(storage.public_url(&format!("{stem}_thumb.webp")));
 
         let clipboard_url = if self.media_type != MediaType::Video {
-            Some(format!("/api/files/{stem}_clipboard.png"))
+            Some(storage.public_url(&format!("{stem}_clipboard.png")))
         } else {
             None
         };

@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::io::Cursor;
-use std::path::Path;
 
 use axum::extract::{DefaultBodyLimit, Multipart, Query, State};
 use axum::http::StatusCode;
@@ -9,7 +8,6 @@ use axum::{Json, Router};
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
 use sqlx::PgPool;
-use tower_http::services::ServeDir;
 use uuid::Uuid;
 
 use crate::auth::middleware::AuthUser;
@@ -51,34 +49,7 @@ fn extension_from_mime(mime: &str) -> &str {
 
 const MAX_UPLOAD_SIZE: usize = 50 * 1024 * 1024; // 50 MB
 
-/// Extract a video frame and generate a gallery thumbnail (best-effort).
-async fn generate_video_thumbnail(file_path: &Path, upload_dir: &str, file_name: &str) {
-    let thumb_stem = file_name
-        .rsplit_once('.')
-        .map(|(s, _)| s.to_string())
-        .unwrap_or_else(|| file_name.to_string());
-    match crate::video::extract_frame(file_path).await {
-        Ok(frame_bytes) => {
-            let thumb_dir = upload_dir.to_string();
-            let result = tokio::task::spawn_blocking(move || {
-                crate::thumbnails::generate_gallery_thumb(
-                    &frame_bytes,
-                    Path::new(&thumb_dir),
-                    &thumb_stem,
-                )
-            })
-            .await;
-            match result {
-                Ok(Ok(())) => {}
-                Ok(Err(e)) => tracing::warn!("Video thumbnail generation failed: {e}"),
-                Err(e) => tracing::warn!("Video thumbnail task panicked: {e}"),
-            }
-        }
-        Err(e) => tracing::warn!("Video frame extraction failed: {e}"),
-    }
-}
-
-pub fn router(upload_dir: &str) -> Router<AppState> {
+pub fn router() -> Router<AppState> {
     Router::new()
         .route("/api/media/upload", post(upload))
         .route("/api/media/{id}/file", put(replace_file))
@@ -91,7 +62,6 @@ pub fn router(upload_dir: &str) -> Router<AppState> {
         .route("/api/media/{id}/tags", put(set_tags))
         .route("/api/media/{id}/regenerate-thumbnail", post(regenerate_thumbnail))
         .route("/api/media/{id}/run-ocr", post(run_ocr))
-        .nest_service("/api/files", ServeDir::new(upload_dir))
 }
 
 fn extract_image_dimensions(bytes: &[u8]) -> Option<(i32, i32)> {
@@ -274,54 +244,87 @@ async fn upload(
 
     let ext = extension_from_mime(&mime);
     let file_name = format!("{}.{ext}", Uuid::new_v4());
-
-    // Ensure upload directory exists
-    let upload_dir = &state.config.upload_dir;
-    tokio::fs::create_dir_all(upload_dir)
-        .await
-        .map_err(|e| AppError::Internal(format!("Failed to create upload directory: {e}")))?;
-
-    let file_path = Path::new(upload_dir).join(&file_name);
     let file_size = bytes.len() as i64;
 
-    tokio::fs::write(&file_path, &bytes)
-        .await
-        .map_err(|e| AppError::Internal(format!("Failed to write file: {e}")))?;
+    // Store the file via the storage backend
+    state.storage.put(&file_name, &bytes, &mime).await?;
 
-    // Extract dimensions and generate thumbnails
+    // Extract dimensions
     let (width, height) = if media_type != MediaType::Video {
         extract_image_dimensions(&bytes)
             .map(|(w, h)| (Some(w), Some(h)))
             .unwrap_or((None, None))
     } else {
-        // Extract video dimensions via ffprobe (best-effort)
-        match crate::video::probe_dimensions(&file_path).await {
+        // Write to a temp file for ffprobe
+        let tmp_dir = tempfile::tempdir()
+            .map_err(|e| AppError::Internal(format!("Failed to create temp dir: {e}")))?;
+        let tmp_path = tmp_dir.path().join(&file_name);
+        tokio::fs::write(&tmp_path, &bytes)
+            .await
+            .map_err(|e| AppError::Internal(format!("Failed to write temp file: {e}")))?;
+        match crate::video::probe_dimensions(&tmp_path).await {
             Ok((w, h)) => (Some(w), Some(h)),
             Err(e) => {
                 tracing::warn!("Video dimension extraction failed: {e}");
                 (None, None)
             }
         }
+        // tmp_dir drops here, cleaning up
     };
 
     // Generate thumbnails (best-effort)
+    let thumb_stem = file_name
+        .rsplit_once('.')
+        .map(|(s, _)| s.to_string())
+        .unwrap_or_else(|| file_name.clone());
+
     if media_type != MediaType::Video {
-        let thumb_dir = upload_dir.to_string();
-        let thumb_stem = file_name
-            .rsplit_once('.')
-            .map(|(s, _)| s.to_string())
-            .unwrap_or_else(|| file_name.clone());
+        let bytes_clone = bytes.clone();
         let result = tokio::task::spawn_blocking(move || {
-            crate::thumbnails::generate(&bytes, Path::new(&thumb_dir), &thumb_stem)
+            crate::thumbnails::generate(&bytes_clone)
         })
         .await;
         match result {
-            Ok(Ok(())) => {}
+            Ok(Ok((thumb_bytes, clipboard_bytes))) => {
+                let thumb_key = format!("{thumb_stem}_thumb.webp");
+                let clipboard_key = format!("{thumb_stem}_clipboard.png");
+                if let Err(e) = state.storage.put(&thumb_key, &thumb_bytes, "image/webp").await {
+                    tracing::warn!("Failed to store thumbnail: {e}");
+                }
+                if let Err(e) = state.storage.put(&clipboard_key, &clipboard_bytes, "image/png").await {
+                    tracing::warn!("Failed to store clipboard image: {e}");
+                }
+            }
             Ok(Err(e)) => tracing::warn!("Thumbnail generation failed: {e}"),
             Err(e) => tracing::warn!("Thumbnail task panicked: {e}"),
         }
     } else {
-        generate_video_thumbnail(&file_path, upload_dir, &file_name).await;
+        // Video: write to temp file for FFmpeg frame extraction
+        let tmp_dir = tempfile::tempdir()
+            .map_err(|e| AppError::Internal(format!("Failed to create temp dir: {e}")))?;
+        let tmp_path = tmp_dir.path().join(&file_name);
+        tokio::fs::write(&tmp_path, &bytes)
+            .await
+            .map_err(|e| AppError::Internal(format!("Failed to write temp file: {e}")))?;
+        match crate::video::extract_frame(&tmp_path).await {
+            Ok(frame_bytes) => {
+                let result = tokio::task::spawn_blocking(move || {
+                    crate::thumbnails::generate_gallery_thumb(&frame_bytes)
+                })
+                .await;
+                match result {
+                    Ok(Ok(thumb_bytes)) => {
+                        let thumb_key = format!("{thumb_stem}_thumb.webp");
+                        if let Err(e) = state.storage.put(&thumb_key, &thumb_bytes, "image/webp").await {
+                            tracing::warn!("Failed to store video thumbnail: {e}");
+                        }
+                    }
+                    Ok(Err(e)) => tracing::warn!("Video thumbnail generation failed: {e}"),
+                    Err(e) => tracing::warn!("Video thumbnail task panicked: {e}"),
+                }
+            }
+            Err(e) => tracing::warn!("Video frame extraction failed: {e}"),
+        }
     }
 
     // Filter empty strings to None
@@ -357,16 +360,18 @@ async fn upload(
 
     // Spawn background OCR task
     if let Some(ref ocr_engine) = state.ocr {
-        let ocr_file = if media_type == MediaType::Video {
-            let stem = file_name.rsplit_once('.').map(|(s, _)| s).unwrap_or(&file_name);
-            Path::new(upload_dir).join(format!("{stem}_thumb.webp"))
+        let ocr_bytes = if media_type == MediaType::Video {
+            let thumb_key = format!("{thumb_stem}_thumb.webp");
+            state.storage.get(&thumb_key).await.ok()
         } else {
-            Path::new(upload_dir).join(&file_name)
+            Some(bytes)
         };
-        crate::ocr::spawn_ocr_task(ocr_engine.clone(), state.db.clone(), media.id, ocr_file);
+        if let Some(ocr_bytes) = ocr_bytes {
+            crate::ocr::spawn_ocr_task(ocr_engine.clone(), state.db.clone(), media.id, ocr_bytes);
+        }
     }
 
-    Ok(Json(media.into_response(tags)))
+    Ok(Json(media.into_response(tags, &state.storage)))
 }
 
 async fn get_media(
@@ -381,7 +386,7 @@ async fn get_media(
         .ok_or_else(|| AppError::NotFound("Media not found".into()))?;
 
     let tags = fetch_tags(&state.db, media.id).await?;
-    Ok(Json(media.into_response(tags)))
+    Ok(Json(media.into_response(tags, &state.storage)))
 }
 
 #[derive(Debug, Deserialize)]
@@ -424,7 +429,7 @@ async fn update_media(
     .ok_or_else(|| AppError::NotFound("Media not found".into()))?;
 
     let tags = fetch_tags(&state.db, media.id).await?;
-    Ok(Json(media.into_response(tags)))
+    Ok(Json(media.into_response(tags, &state.storage)))
 }
 
 async fn replace_file(
@@ -476,23 +481,25 @@ async fn replace_file(
 
     let ext = extension_from_mime(&mime);
     let file_name = format!("{}.{ext}", Uuid::new_v4());
-
-    let upload_dir = &state.config.upload_dir;
-    let file_path = Path::new(upload_dir).join(&file_name);
     let file_size = bytes.len() as i64;
 
-    tokio::fs::write(&file_path, &bytes)
-        .await
-        .map_err(|e| AppError::Internal(format!("Failed to write file: {e}")))?;
+    // Store the new file via the storage backend
+    state.storage.put(&file_name, &bytes, &mime).await?;
 
-    // Extract dimensions and generate thumbnails
+    // Extract dimensions
     let (width, height) = if media_type != MediaType::Video {
         extract_image_dimensions(&bytes)
             .map(|(w, h)| (Some(w), Some(h)))
             .unwrap_or((None, None))
     } else {
-        // Extract video dimensions via ffprobe (best-effort)
-        match crate::video::probe_dimensions(&file_path).await {
+        // Write to a temp file for ffprobe
+        let tmp_dir = tempfile::tempdir()
+            .map_err(|e| AppError::Internal(format!("Failed to create temp dir: {e}")))?;
+        let tmp_path = tmp_dir.path().join(&file_name);
+        tokio::fs::write(&tmp_path, &bytes)
+            .await
+            .map_err(|e| AppError::Internal(format!("Failed to write temp file: {e}")))?;
+        match crate::video::probe_dimensions(&tmp_path).await {
             Ok((w, h)) => (Some(w), Some(h)),
             Err(e) => {
                 tracing::warn!("Video dimension extraction failed: {e}");
@@ -501,31 +508,65 @@ async fn replace_file(
         }
     };
 
-    // Delete old file and thumbnails from disk (best-effort)
-    let upload_dir_path = Path::new(upload_dir);
-    let _ = tokio::fs::remove_file(upload_dir_path.join(&old_media.file_path)).await;
-    for thumb_path in crate::thumbnails::thumbnail_paths(upload_dir_path, &old_media.file_path) {
-        let _ = tokio::fs::remove_file(&thumb_path).await;
+    // Delete old file and thumbnails via storage backend (best-effort)
+    state.storage.delete(&old_media.file_path).await;
+    for key in crate::thumbnails::thumbnail_keys(&old_media.file_path) {
+        state.storage.delete(&key).await;
     }
 
     // Generate thumbnails (best-effort)
+    let thumb_stem = file_name
+        .rsplit_once('.')
+        .map(|(s, _)| s.to_string())
+        .unwrap_or_else(|| file_name.clone());
+
     if media_type != MediaType::Video {
-        let thumb_dir = upload_dir.to_string();
-        let thumb_stem = file_name
-            .rsplit_once('.')
-            .map(|(s, _)| s.to_string())
-            .unwrap_or_else(|| file_name.clone());
+        let bytes_clone = bytes.clone();
         let result = tokio::task::spawn_blocking(move || {
-            crate::thumbnails::generate(&bytes, Path::new(&thumb_dir), &thumb_stem)
+            crate::thumbnails::generate(&bytes_clone)
         })
         .await;
         match result {
-            Ok(Ok(())) => {}
+            Ok(Ok((thumb_bytes, clipboard_bytes))) => {
+                let thumb_key = format!("{thumb_stem}_thumb.webp");
+                let clipboard_key = format!("{thumb_stem}_clipboard.png");
+                if let Err(e) = state.storage.put(&thumb_key, &thumb_bytes, "image/webp").await {
+                    tracing::warn!("Failed to store thumbnail: {e}");
+                }
+                if let Err(e) = state.storage.put(&clipboard_key, &clipboard_bytes, "image/png").await {
+                    tracing::warn!("Failed to store clipboard image: {e}");
+                }
+            }
             Ok(Err(e)) => tracing::warn!("Thumbnail generation failed: {e}"),
             Err(e) => tracing::warn!("Thumbnail task panicked: {e}"),
         }
     } else {
-        generate_video_thumbnail(&file_path, upload_dir, &file_name).await;
+        // Video: write to temp file for FFmpeg frame extraction
+        let tmp_dir = tempfile::tempdir()
+            .map_err(|e| AppError::Internal(format!("Failed to create temp dir: {e}")))?;
+        let tmp_path = tmp_dir.path().join(&file_name);
+        tokio::fs::write(&tmp_path, &bytes)
+            .await
+            .map_err(|e| AppError::Internal(format!("Failed to write temp file: {e}")))?;
+        match crate::video::extract_frame(&tmp_path).await {
+            Ok(frame_bytes) => {
+                let result = tokio::task::spawn_blocking(move || {
+                    crate::thumbnails::generate_gallery_thumb(&frame_bytes)
+                })
+                .await;
+                match result {
+                    Ok(Ok(thumb_bytes)) => {
+                        let thumb_key = format!("{thumb_stem}_thumb.webp");
+                        if let Err(e) = state.storage.put(&thumb_key, &thumb_bytes, "image/webp").await {
+                            tracing::warn!("Failed to store video thumbnail: {e}");
+                        }
+                    }
+                    Ok(Err(e)) => tracing::warn!("Video thumbnail generation failed: {e}"),
+                    Err(e) => tracing::warn!("Video thumbnail task panicked: {e}"),
+                }
+            }
+            Err(e) => tracing::warn!("Video frame extraction failed: {e}"),
+        }
     }
 
     let media = sqlx::query_as::<_, Media>(
@@ -545,17 +586,19 @@ async fn replace_file(
 
     // Spawn background OCR task for the new file
     if let Some(ref ocr_engine) = state.ocr {
-        let ocr_file = if media_type == MediaType::Video {
-            let stem = file_name.rsplit_once('.').map(|(s, _)| s).unwrap_or(&file_name);
-            Path::new(upload_dir).join(format!("{stem}_thumb.webp"))
+        let ocr_bytes = if media_type == MediaType::Video {
+            let thumb_key = format!("{thumb_stem}_thumb.webp");
+            state.storage.get(&thumb_key).await.ok()
         } else {
-            Path::new(upload_dir).join(&file_name)
+            Some(bytes)
         };
-        crate::ocr::spawn_ocr_task(ocr_engine.clone(), state.db.clone(), media.id, ocr_file);
+        if let Some(ocr_bytes) = ocr_bytes {
+            crate::ocr::spawn_ocr_task(ocr_engine.clone(), state.db.clone(), media.id, ocr_bytes);
+        }
     }
 
     let tags = fetch_tags(&state.db, media.id).await?;
-    Ok(Json(media.into_response(tags)))
+    Ok(Json(media.into_response(tags, &state.storage)))
 }
 
 async fn delete_media(
@@ -569,11 +612,10 @@ async fn delete_media(
         .await?
         .ok_or_else(|| AppError::NotFound("Media not found".into()))?;
 
-    // Delete file and thumbnails from disk (best-effort)
-    let upload_dir = Path::new(&state.config.upload_dir);
-    let _ = tokio::fs::remove_file(upload_dir.join(&media.file_path)).await;
-    for thumb_path in crate::thumbnails::thumbnail_paths(upload_dir, &media.file_path) {
-        let _ = tokio::fs::remove_file(&thumb_path).await;
+    // Delete file and thumbnails via storage backend (best-effort)
+    state.storage.delete(&media.file_path).await;
+    for key in crate::thumbnails::thumbnail_keys(&media.file_path) {
+        state.storage.delete(&key).await;
     }
 
     Ok(StatusCode::NO_CONTENT)
@@ -590,41 +632,64 @@ async fn regenerate_thumbnail(
         .await?
         .ok_or_else(|| AppError::NotFound("Media not found".into()))?;
 
-    let upload_dir = &state.config.upload_dir;
-    let upload_dir_path = Path::new(upload_dir);
-    let file_path = upload_dir_path.join(&media.file_path);
-
     // Delete existing thumbnails
-    for thumb_path in crate::thumbnails::thumbnail_paths(upload_dir_path, &media.file_path) {
-        let _ = tokio::fs::remove_file(&thumb_path).await;
+    for key in crate::thumbnails::thumbnail_keys(&media.file_path) {
+        state.storage.delete(&key).await;
     }
+
+    let thumb_stem = media
+        .file_path
+        .rsplit_once('.')
+        .map(|(s, _)| s.to_string())
+        .unwrap_or_else(|| media.file_path.clone());
 
     // Regenerate
     if media.media_type != MediaType::Video {
-        let bytes = tokio::fs::read(&file_path)
-            .await
-            .map_err(|e| AppError::Internal(format!("Failed to read media file: {e}")))?;
-        let thumb_dir = upload_dir.to_string();
-        let thumb_stem = media
-            .file_path
-            .rsplit_once('.')
-            .map(|(s, _)| s.to_string())
-            .unwrap_or_else(|| media.file_path.clone());
+        let bytes = state.storage.get(&media.file_path).await?;
         let result = tokio::task::spawn_blocking(move || {
-            crate::thumbnails::generate(&bytes, Path::new(&thumb_dir), &thumb_stem)
+            crate::thumbnails::generate(&bytes)
         })
         .await;
         match result {
-            Ok(Ok(())) => {}
+            Ok(Ok((thumb_bytes, clipboard_bytes))) => {
+                let thumb_key = format!("{thumb_stem}_thumb.webp");
+                let clipboard_key = format!("{thumb_stem}_clipboard.png");
+                state.storage.put(&thumb_key, &thumb_bytes, "image/webp").await?;
+                state.storage.put(&clipboard_key, &clipboard_bytes, "image/png").await?;
+            }
             Ok(Err(e)) => return Err(AppError::Internal(format!("Thumbnail generation failed: {e}"))),
             Err(e) => return Err(AppError::Internal(format!("Thumbnail task panicked: {e}"))),
         }
     } else {
-        generate_video_thumbnail(&file_path, upload_dir, &media.file_path).await;
+        // Video: write to temp file for FFmpeg frame extraction
+        let bytes = state.storage.get(&media.file_path).await?;
+        let tmp_dir = tempfile::tempdir()
+            .map_err(|e| AppError::Internal(format!("Failed to create temp dir: {e}")))?;
+        let tmp_path = tmp_dir.path().join(&media.file_path);
+        tokio::fs::write(&tmp_path, &bytes)
+            .await
+            .map_err(|e| AppError::Internal(format!("Failed to write temp file: {e}")))?;
+        match crate::video::extract_frame(&tmp_path).await {
+            Ok(frame_bytes) => {
+                let result = tokio::task::spawn_blocking(move || {
+                    crate::thumbnails::generate_gallery_thumb(&frame_bytes)
+                })
+                .await;
+                match result {
+                    Ok(Ok(thumb_bytes)) => {
+                        let thumb_key = format!("{thumb_stem}_thumb.webp");
+                        state.storage.put(&thumb_key, &thumb_bytes, "image/webp").await?;
+                    }
+                    Ok(Err(e)) => return Err(AppError::Internal(format!("Video thumbnail generation failed: {e}"))),
+                    Err(e) => return Err(AppError::Internal(format!("Video thumbnail task panicked: {e}"))),
+                }
+            }
+            Err(e) => return Err(AppError::Internal(format!("Video frame extraction failed: {e}"))),
+        }
     }
 
     let tags = fetch_tags(&state.db, media.id).await?;
-    Ok(Json(media.into_response(tags)))
+    Ok(Json(media.into_response(tags, &state.storage)))
 }
 
 async fn run_ocr(
@@ -643,20 +708,18 @@ async fn run_ocr(
         .await?
         .ok_or_else(|| AppError::NotFound("Media not found".into()))?;
 
-    let upload_dir = &state.config.upload_dir;
-    let ocr_file = if media.media_type == MediaType::Video {
+    let ocr_key = if media.media_type == MediaType::Video {
         let stem = media
             .file_path
             .rsplit_once('.')
             .map(|(s, _)| s)
             .unwrap_or(&media.file_path);
-        Path::new(upload_dir).join(format!("{stem}_thumb.webp"))
+        format!("{stem}_thumb.webp")
     } else {
-        Path::new(upload_dir).join(&media.file_path)
+        media.file_path.clone()
     };
 
-    let bytes = tokio::fs::read(&ocr_file)
-        .await
+    let bytes = state.storage.get(&ocr_key).await
         .map_err(|e| AppError::Internal(format!("Failed to read file for OCR: {e}")))?;
 
     let engine = ocr_engine.clone();
@@ -673,7 +736,7 @@ async fn run_ocr(
     .await?;
 
     let tags = fetch_tags(&state.db, media.id).await?;
-    Ok(Json(media.into_response(tags)))
+    Ok(Json(media.into_response(tags, &state.storage)))
 }
 
 #[derive(Debug, Deserialize)]
@@ -701,7 +764,7 @@ async fn set_tags(
         .collect::<Result<_, _>>()?;
 
     let tags = link_tags(&state.db, media.id, &validated).await?;
-    Ok(Json(media.into_response(tags)))
+    Ok(Json(media.into_response(tags, &state.storage)))
 }
 
 #[derive(Debug, Deserialize)]
@@ -805,7 +868,7 @@ async fn list_media(
             .into_iter()
             .map(|m| {
                 let tags = tags_map.remove(&m.id).unwrap_or_default();
-                m.into_response(tags)
+                m.into_response(tags, &state.storage)
             })
             .collect(),
         next_cursor,

@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::Arc;
 
 use ocr_rs::OcrEngine;
@@ -67,23 +67,16 @@ pub fn recognize(engine: &OcrEngine, image_bytes: &[u8]) -> Option<String> {
     }
 }
 
-/// Spawn a background task to read a file from disk, run OCR, and update the database.
+/// Spawn a background task to run OCR on the given bytes and update the database.
 pub fn spawn_ocr_task(
     engine: Arc<OcrEngine>,
     db: PgPool,
     media_id: Uuid,
-    file_path: PathBuf,
+    image_bytes: Vec<u8>,
 ) {
     tokio::spawn(async move {
-        let bytes = match tokio::fs::read(&file_path).await {
-            Ok(b) => b,
-            Err(e) => {
-                tracing::warn!("OCR: failed to read file {}: {e}", file_path.display());
-                return;
-            }
-        };
-
-        let result = tokio::task::spawn_blocking(move || recognize(&engine, &bytes)).await;
+        let result =
+            tokio::task::spawn_blocking(move || recognize(&engine, &image_bytes)).await;
 
         match result {
             Ok(Some(text)) => {
