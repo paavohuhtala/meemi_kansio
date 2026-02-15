@@ -21,3 +21,5 @@ vendor/ocr-rs/3rd_party/MNN/
 # Playwright
 test-results/
 playwright-report/
+
+.terraform
