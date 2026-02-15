@@ -20,16 +20,14 @@ jobs:
 
       - name: Initialize OpenTofu
         working-directory: infra
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.SCW_ACCESS_KEY }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.SCW_SECRET_KEY }}
-        run: tofu init
+        run: |
+          tofu init \
+            -backend-config="access_key=${{ secrets.SCW_ACCESS_KEY }}" \
+            -backend-config="secret_key=${{ secrets.SCW_SECRET_KEY }}"
 
       - name: Apply infrastructure
         working-directory: infra
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.SCW_ACCESS_KEY }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.SCW_SECRET_KEY }}
           SCW_ACCESS_KEY: ${{ secrets.SCW_ACCESS_KEY }}
           SCW_SECRET_KEY: ${{ secrets.SCW_SECRET_KEY }}
           TF_VAR_image_tag: ${{ github.event.release.tag_name }}

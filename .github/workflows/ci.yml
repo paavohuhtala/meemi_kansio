@@ -148,7 +148,7 @@ jobs:
       - name: Login to Scaleway Container Registry
         uses: docker/login-action@v3
         with:
-          registry: rg.fr-par.scw.cloud
+          registry: rg.fr-par.scw.cloud/${{ secrets.SCW_REGISTRY_NAMESPACE }}
           username: nologin
           password: ${{ secrets.SCW_SECRET_KEY }}
 
