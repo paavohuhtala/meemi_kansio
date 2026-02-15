@@ -15,9 +15,6 @@ frontend/dist/
 # Data
 uploads/
 
-# OCR models
-backend/models/
-
 # Vendored MNN C++ source (cloned during ocr-rs build)
 vendor/ocr-rs/3rd_party/MNN/
 
