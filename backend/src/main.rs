@@ -14,7 +14,7 @@ use axum::{extract::State, routing::get, Json, Router};
 use config::Config;
 use ocr_rs::OcrEngine;
 use sqlx::PgPool;
-use storage::{LocalStorage, StorageBackend};
+use storage::{LocalStorage, S3Storage, StorageBackend};
 use tower_http::cors::CorsLayer;
 use tower_http::services::{ServeDir, ServeFile};
 use tower_http::trace::TraceLayer;
@@ -52,7 +52,34 @@ async fn main() {
         .expect("failed to run migrations");
 
     let ocr = ocr::init_engine(&config.model_dir);
-    let storage = StorageBackend::Local(LocalStorage::new(&config.upload_dir));
+    let storage = match config.storage_backend.as_str() {
+        "s3" => {
+            let bucket = config
+                .s3_bucket
+                .clone()
+                .expect("S3_BUCKET required when STORAGE_BACKEND=s3");
+            let region = config
+                .s3_region
+                .clone()
+                .expect("S3_REGION required when STORAGE_BACKEND=s3");
+            let endpoint = config
+                .s3_endpoint
+                .clone()
+                .expect("S3_ENDPOINT required when STORAGE_BACKEND=s3");
+            let access_key = config
+                .s3_access_key_id
+                .clone()
+                .expect("S3_ACCESS_KEY_ID required when STORAGE_BACKEND=s3");
+            let secret_key = config
+                .s3_secret_access_key
+                .clone()
+                .expect("S3_SECRET_ACCESS_KEY required when STORAGE_BACKEND=s3");
+            StorageBackend::S3(
+                S3Storage::new(bucket, region, endpoint, access_key, secret_key).await,
+            )
+        }
+        _ => StorageBackend::Local(LocalStorage::new(&config.upload_dir)),
+    };
 
     let state = AppState {
         db,

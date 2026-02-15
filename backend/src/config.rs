@@ -8,6 +8,12 @@ pub struct Config {
     pub jwt_secret: String,
     pub static_dir: Option<String>,
     pub model_dir: String,
+    pub storage_backend: String,
+    pub s3_bucket: Option<String>,
+    pub s3_region: Option<String>,
+    pub s3_endpoint: Option<String>,
+    pub s3_access_key_id: Option<String>,
+    pub s3_secret_access_key: Option<String>,
 }
 
 impl Config {
@@ -25,6 +31,12 @@ impl Config {
                 .unwrap_or_else(|_| "dev-secret-change-in-production".to_string()),
             static_dir: env::var("STATIC_DIR").ok(),
             model_dir: env::var("MODEL_DIR").unwrap_or_else(|_| "./models".to_string()),
+            storage_backend: env::var("STORAGE_BACKEND").unwrap_or_else(|_| "local".to_string()),
+            s3_bucket: env::var("S3_BUCKET").ok(),
+            s3_region: env::var("S3_REGION").ok(),
+            s3_endpoint: env::var("S3_ENDPOINT").ok(),
+            s3_access_key_id: env::var("S3_ACCESS_KEY_ID").ok(),
+            s3_secret_access_key: env::var("S3_SECRET_ACCESS_KEY").ok(),
         }
     }
 }
