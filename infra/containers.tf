@@ -26,7 +26,6 @@ resource "scaleway_container" "backend" {
     STATIC_DIR      = "/app/static"
     MODEL_DIR       = "/app/models"
     HOST            = "0.0.0.0"
-    PORT            = "3000"
   }
 
   secret_environment_variables = {
