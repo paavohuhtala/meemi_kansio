@@ -34,6 +34,7 @@ jobs:
         env:
           SCW_ACCESS_KEY: ${{ secrets.SCW_ACCESS_KEY }}
           SCW_SECRET_KEY: ${{ secrets.SCW_SECRET_KEY }}
+          TF_VAR_scaleway_project_id: ${{ secrets.SCW_PROJECT_ID }}
           TF_VAR_image_tag: ${{ steps.tag.outputs.image_tag }}
           TF_VAR_database_url: ${{ secrets.DATABASE_URL }}
           TF_VAR_jwt_secret: ${{ secrets.JWT_SECRET }}

@@ -3,6 +3,11 @@ variable "scaleway_region" {
   default = "fr-par"
 }
 
+variable "scaleway_project_id" {
+  type        = string
+  description = "Scaleway project ID"
+}
+
 variable "image_tag" {
   type        = string
   description = "Docker image tag (git SHA) to deploy"

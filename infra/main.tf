@@ -26,7 +26,8 @@ terraform {
 }
 
 provider "scaleway" {
-  region = var.scaleway_region
+  region     = var.scaleway_region
+  project_id = var.scaleway_project_id
 }
 
 provider "aws" {
