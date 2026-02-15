@@ -39,13 +39,13 @@ RUN cd backend && cargo build --release 2>/dev/null || true
 
 # Now copy actual source and build
 COPY backend/src/ ./backend/src/
-RUN touch backend/src/main.rs && cd backend && cargo build --release
+RUN touch backend/src/main.rs && cd backend && cargo build --release && strip target/release/meemi-backend
 
 # Stage 3: Runtime
 FROM debian:bookworm-slim AS runtime
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*

@@ -29,6 +29,7 @@ aws-sdk-s3 = "1"
 [profile.ci]
 inherits = "dev"
 opt-level = 1
+strip = true
 
 [profile.dev.package.image]
 opt-level = 3
