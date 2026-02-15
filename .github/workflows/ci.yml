@@ -10,21 +10,6 @@ env:
 jobs:
   test-backend:
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_USER: meemi
-          POSTGRES_PASSWORD: meemi
-          POSTGRES_DB: meemi
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
     steps:
       - uses: actions/checkout@v4
 
@@ -42,11 +27,9 @@ jobs:
         with:
           workspaces: "backend -> target"
 
-      - name: Run tests
+      - name: Check (no unit tests yet)
         working-directory: backend
-        env:
-          DATABASE_URL: postgres://meemi:meemi@localhost:5432/meemi
-        run: cargo test
+        run: cargo check
 
       - name: Build release binary
         working-directory: backend
@@ -123,6 +106,10 @@ jobs:
       - name: Install Playwright browsers
         working-directory: frontend
         run: pnpm exec playwright install --with-deps chromium
+
+      - name: Build frontend
+        working-directory: frontend
+        run: pnpm build
 
       - name: Download backend binary
         uses: actions/download-artifact@v4

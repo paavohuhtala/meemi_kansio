@@ -64,12 +64,14 @@ async function prepareTemplateDatabase() {
   // Run migrations via the backend binary (so sqlx _sqlx_migrations table is created properly)
   const binaryPath = BACKEND_BINARY;
   const templateDbUrl = `${BASE_DB_URL}/${TEMPLATE_DB}`;
+  const modelDir = resolve(BACKEND_DIR, 'models');
   const migrateChild = spawn(binaryPath, [], {
     env: {
       ...process.env,
       DATABASE_URL: templateDbUrl,
       PORT: '0',
       HOST: '127.0.0.1',
+      MODEL_DIR: modelDir,
       RUST_LOG: 'info',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -167,6 +169,8 @@ function spawnBackend(index: number): ChildProcess {
   const staticDir = resolve(FRONTEND_DIR, 'dist');
   const uploadDir = mkdtempSync(join(tmpdir(), `meemi-e2e-uploads-${index}-`));
 
+  const modelDir = resolve(BACKEND_DIR, 'models');
+
   const child = spawn(BACKEND_BINARY, [], {
     env: {
       ...process.env,
@@ -175,6 +179,7 @@ function spawnBackend(index: number): ChildProcess {
       HOST: '0.0.0.0',
       STATIC_DIR: staticDir,
       UPLOAD_DIR: uploadDir,
+      MODEL_DIR: modelDir,
       RUST_LOG: 'info',
     },
     stdio: ['ignore', 'pipe', 'pipe'],

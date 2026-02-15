@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 import { HEALTH_CHECK_PORT } from './e2e/helpers.ts';
 
-const WORKERS = process.env.CI ? 1 : 4;
+const WORKERS = 4;
 
 export default defineConfig({
   testDir: './e2e/tests',
