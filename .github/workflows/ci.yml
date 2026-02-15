@@ -27,19 +27,15 @@ jobs:
         with:
           workspaces: "backend -> target"
 
-      - name: Check (no unit tests yet)
+      - name: Build backend
         working-directory: backend
-        run: cargo check
-
-      - name: Build release binary
-        working-directory: backend
-        run: cargo build --release
+        run: cargo build
 
       - name: Upload backend binary
         uses: actions/upload-artifact@v4
         with:
           name: meemi-backend
-          path: backend/target/release/meemi-backend
+          path: backend/target/debug/meemi-backend
           retention-days: 1
 
   test-frontend:
