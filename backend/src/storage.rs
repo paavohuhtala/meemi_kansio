@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use aws_sdk_s3::primitives::ByteStream;
+use aws_sdk_s3::types::ObjectCannedAcl;
 use aws_sdk_s3::Client as S3Client;
 
 use crate::error::AppError;
@@ -99,6 +100,7 @@ impl S3Storage {
             .key(key)
             .body(ByteStream::from(data.to_vec()))
             .content_type(content_type)
+            .acl(ObjectCannedAcl::PublicRead)
             .send()
             .await
             .map_err(|e| AppError::Internal(format!("S3 put failed: {e}")))?;
