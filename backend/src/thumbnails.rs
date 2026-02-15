@@ -1,8 +1,7 @@
 use std::io::Cursor;
-use std::path::Path;
 
 use image::imageops::FilterType;
-use image::{DynamicImage, ImageReader};
+use image::{DynamicImage, ImageFormat, ImageReader};
 
 use crate::error::AppError;
 
@@ -24,45 +23,38 @@ fn resize_to_max(img: &DynamicImage, max_dim: u32) -> DynamicImage {
     )
 }
 
-/// Generate gallery thumbnail (WebP) and clipboard copy (PNG) for a media file.
-/// `bytes` is the raw uploaded file content.
-/// `upload_dir` is the directory where thumbnails are written.
-/// `file_stem` is the UUID portion of the filename (e.g. "abc123" from "abc123.jpg").
-pub fn generate(
-    bytes: &[u8],
-    upload_dir: &Path,
-    file_stem: &str,
-) -> Result<(), AppError> {
+fn encode_webp(img: &DynamicImage) -> Result<Vec<u8>, AppError> {
+    let mut buf = Cursor::new(Vec::new());
+    img.write_to(&mut buf, ImageFormat::WebP)
+        .map_err(|e| AppError::Internal(format!("Failed to encode WebP: {e}")))?;
+    Ok(buf.into_inner())
+}
+
+fn encode_png(img: &DynamicImage) -> Result<Vec<u8>, AppError> {
+    let mut buf = Cursor::new(Vec::new());
+    img.write_to(&mut buf, ImageFormat::Png)
+        .map_err(|e| AppError::Internal(format!("Failed to encode PNG: {e}")))?;
+    Ok(buf.into_inner())
+}
+
+/// Generate gallery thumbnail (WebP bytes) and clipboard copy (PNG bytes).
+/// Returns (thumbnail_webp, clipboard_png).
+pub fn generate(bytes: &[u8]) -> Result<(Vec<u8>, Vec<u8>), AppError> {
     let img = ImageReader::new(Cursor::new(bytes))
         .with_guessed_format()
         .map_err(|e| AppError::Internal(format!("Failed to detect image format: {e}")))?
         .decode()
         .map_err(|e| AppError::Internal(format!("Failed to decode image: {e}")))?;
 
-    // Gallery thumbnail — lossless WebP (small due to resize)
     let thumb = resize_to_max(&img, THUMB_MAX_DIM);
-    let thumb_path = upload_dir.join(format!("{file_stem}_thumb.webp"));
-    thumb
-        .save(&thumb_path)
-        .map_err(|e| AppError::Internal(format!("Failed to save thumbnail: {e}")))?;
-
-    // Clipboard copy — PNG, lossless
     let clipboard = resize_to_max(&img, CLIPBOARD_MAX_DIM);
-    let clipboard_path = upload_dir.join(format!("{file_stem}_clipboard.png"));
-    clipboard
-        .save(&clipboard_path)
-        .map_err(|e| AppError::Internal(format!("Failed to save clipboard image: {e}")))?;
 
-    Ok(())
+    Ok((encode_webp(&thumb)?, encode_png(&clipboard)?))
 }
 
-/// Generate only the gallery thumbnail (WebP) from raw image bytes.
+/// Generate only the gallery thumbnail (WebP bytes) from raw image bytes.
 /// Used for video frames where a clipboard copy isn't needed.
-pub fn generate_gallery_thumb(
-    bytes: &[u8],
-    upload_dir: &Path,
-    file_stem: &str,
-) -> Result<(), AppError> {
+pub fn generate_gallery_thumb(bytes: &[u8]) -> Result<Vec<u8>, AppError> {
     let img = ImageReader::new(Cursor::new(bytes))
         .with_guessed_format()
         .map_err(|e| AppError::Internal(format!("Failed to detect image format: {e}")))?
@@ -70,23 +62,18 @@ pub fn generate_gallery_thumb(
         .map_err(|e| AppError::Internal(format!("Failed to decode image: {e}")))?;
 
     let thumb = resize_to_max(&img, THUMB_MAX_DIM);
-    let thumb_path = upload_dir.join(format!("{file_stem}_thumb.webp"));
-    thumb
-        .save(&thumb_path)
-        .map_err(|e| AppError::Internal(format!("Failed to save thumbnail: {e}")))?;
-
-    Ok(())
+    encode_webp(&thumb)
 }
 
-/// Return the thumbnail file paths derived from the original filename.
+/// Return the thumbnail storage keys derived from the original filename.
 /// Used for cleanup during delete/replace.
-pub fn thumbnail_paths(upload_dir: &Path, file_name: &str) -> [std::path::PathBuf; 2] {
-    let stem = Path::new(file_name)
+pub fn thumbnail_keys(file_name: &str) -> [String; 2] {
+    let stem = std::path::Path::new(file_name)
         .file_stem()
         .and_then(|s| s.to_str())
         .unwrap_or(file_name);
     [
-        upload_dir.join(format!("{stem}_thumb.webp")),
-        upload_dir.join(format!("{stem}_clipboard.png")),
+        format!("{stem}_thumb.webp"),
+        format!("{stem}_clipboard.png"),
     ]
 }
