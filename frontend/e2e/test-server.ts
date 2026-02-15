@@ -18,6 +18,7 @@ const SKIP_BUILD = process.env.SKIP_BUILD === '1';
 const FRONTEND_DIR = resolve(import.meta.dirname, '..');
 const ROOT_DIR = resolve(FRONTEND_DIR, '..');
 const BACKEND_DIR = resolve(ROOT_DIR, 'backend');
+const BACKEND_BINARY = process.env.BACKEND_BINARY || resolve(BACKEND_DIR, 'target/debug/meemi-backend');
 
 const children: ChildProcess[] = [];
 
@@ -61,7 +62,7 @@ async function prepareTemplateDatabase() {
   await admin.query(`CREATE DATABASE ${TEMPLATE_DB}`);
 
   // Run migrations via the backend binary (so sqlx _sqlx_migrations table is created properly)
-  const binaryPath = resolve(BACKEND_DIR, 'target/debug/meemi-backend');
+  const binaryPath = BACKEND_BINARY;
   const templateDbUrl = `${BASE_DB_URL}/${TEMPLATE_DB}`;
   const migrateChild = spawn(binaryPath, [], {
     env: {
@@ -164,10 +165,9 @@ function spawnBackend(index: number): ChildProcess {
   const port = FIRST_BACKEND_PORT + index;
   const dbUrl = `${BASE_DB_URL}/${TEMPLATE_DB}_${index}`;
   const staticDir = resolve(FRONTEND_DIR, 'dist');
-  const binaryPath = resolve(BACKEND_DIR, 'target/debug/meemi-backend');
   const uploadDir = mkdtempSync(join(tmpdir(), `meemi-e2e-uploads-${index}-`));
 
-  const child = spawn(binaryPath, [], {
+  const child = spawn(BACKEND_BINARY, [], {
     env: {
       ...process.env,
       DATABASE_URL: dbUrl,
@@ -273,7 +273,9 @@ async function main() {
 
   if (!SKIP_BUILD) {
     buildFrontend();
-    buildBackend();
+    if (!process.env.BACKEND_BINARY) {
+      buildBackend();
+    }
   }
 
   await prepareTemplateDatabase();
