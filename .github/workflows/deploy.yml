@@ -13,6 +13,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Extract image tag from release tag
+        id: tag
+        run: echo "image_tag=${GITHUB_REF_NAME#build-}" >> "$GITHUB_OUTPUT"
+
       - name: Install OpenTofu
         uses: opentofu/setup-opentofu@v1
         with:
@@ -30,7 +34,7 @@ jobs:
         env:
           SCW_ACCESS_KEY: ${{ secrets.SCW_ACCESS_KEY }}
           SCW_SECRET_KEY: ${{ secrets.SCW_SECRET_KEY }}
-          TF_VAR_image_tag: ${{ github.event.release.tag_name }}
+          TF_VAR_image_tag: ${{ steps.tag.outputs.image_tag }}
           TF_VAR_database_url: ${{ secrets.DATABASE_URL }}
           TF_VAR_jwt_secret: ${{ secrets.JWT_SECRET }}
           TF_VAR_s3_access_key_id: ${{ secrets.S3_ACCESS_KEY_ID }}

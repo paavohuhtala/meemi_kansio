@@ -175,7 +175,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${{ github.sha }}" \
+          gh release create "build-${{ github.sha }}" \
             --prerelease \
-            --title "Build ${{ github.sha }}" \
+            --title "Build ${GITHUB_SHA::7}" \
             --notes "Docker image: \`rg.fr-par.scw.cloud/${{ secrets.SCW_REGISTRY_NAMESPACE }}/meemit-backend:${{ github.sha }}\`"
