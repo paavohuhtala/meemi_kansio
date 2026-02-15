@@ -24,7 +24,6 @@ image = { version = "0.25", default-features = false, features = ["jpeg", "png",
 ocr-rs = { path = "../vendor/ocr-rs" }
 tempfile = "3"
 aws-sdk-s3 = "1"
-aws-config = { version = "1", features = ["behavior-version-latest"] }
 
 [profile.dev.package.image]
 opt-level = 3
