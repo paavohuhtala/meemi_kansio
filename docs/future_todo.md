@@ -1,13 +1,6 @@
 
 # Future ideas for meemi_kansio
 
-## Priority 1
-
-* Bulk upload of images, with progress indication and error handling
-  * Bulk uploaded files use their name (without extension) as the default title. Other metadata is left empty.
-* Generate thumbnails; a few resolutions per image
-* Automatically generate easily clipboard-copyable images: PNG, max 1024px per dimension
-
 ## Priority 2
 
 * Compute perceptual hashes for images to detect duplicates
