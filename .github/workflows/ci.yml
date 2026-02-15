@@ -29,13 +29,13 @@ jobs:
 
       - name: Build backend
         working-directory: backend
-        run: cargo build
+        run: cargo build --profile ci
 
       - name: Upload backend binary
         uses: actions/upload-artifact@v4
         with:
           name: meemi-backend
-          path: backend/target/debug/meemi-backend
+          path: backend/target/ci/meemi-backend
           retention-days: 1
 
   test-frontend:

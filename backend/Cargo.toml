@@ -25,6 +25,11 @@ ocr-rs = { path = "../vendor/ocr-rs" }
 tempfile = "3"
 aws-sdk-s3 = "1"
 
+# CI uses the "ci" profile for e2e tests: faster than dev, quicker to build than release
+[profile.ci]
+inherits = "dev"
+opt-level = 1
+
 [profile.dev.package.image]
 opt-level = 3
 
