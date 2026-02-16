@@ -371,6 +371,7 @@ function FileCard({
           <ErrorOverlay>
             <ErrorText>{error ?? 'Upload failed'}</ErrorText>
             <RetryButton
+              data-testid="retry-button"
               onClick={(e) => {
                 e.stopPropagation();
                 onRetry(id);

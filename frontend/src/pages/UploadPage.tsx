@@ -204,7 +204,6 @@ export function UploadPage() {
           onAdd={handleAdd}
           onRetry={handleRetry}
         />
-        {error && <ErrorText>{error}</ErrorText>}
         <Button
           type="submit"
           disabled={uploadDisabled}

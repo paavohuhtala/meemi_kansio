@@ -11,9 +11,9 @@ export class UploadPage {
   readonly dropZone: Locator;
   readonly previewImage: Locator;
   readonly previewVideo: Locator;
-  readonly resultsGrid: Locator;
-  readonly resultCards: Locator;
-  readonly uploadMoreButton: Locator;
+  readonly previewGrid: Locator;
+  readonly fileCards: Locator;
+  readonly addFileCard: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -23,9 +23,9 @@ export class UploadPage {
     this.dropZone = page.getByTestId('drop-zone');
     this.previewImage = page.getByTestId('upload-preview-image');
     this.previewVideo = page.getByTestId('upload-preview-video');
-    this.resultsGrid = page.getByTestId('results-grid');
-    this.resultCards = page.getByTestId('result-card');
-    this.uploadMoreButton = page.getByTestId('upload-more');
+    this.previewGrid = page.getByTestId('preview-grid');
+    this.fileCards = page.getByTestId('file-card');
+    this.addFileCard = page.getByTestId('add-file-card');
   }
 
   async goto() {
@@ -34,21 +34,27 @@ export class UploadPage {
 
   async upload(fileName: string) {
     await this.goto();
-    await this.fileInput.setInputFiles(path.join(TEST_DATA_DIR, fileName));
+    await this.fileInput.first().setInputFiles(path.join(TEST_DATA_DIR, fileName));
     await this.submitButton.click();
+    // Wait for the success card to appear (file-card containing a link to /media/)
+    const successLink = this.previewGrid.locator('a[href^="/media/"]').first();
+    await successLink.waitFor();
+    // Success links have target="_blank", so navigate directly instead of clicking
+    const href = await successLink.getAttribute('href');
+    await this.page.goto(href!);
   }
 
   async selectFiles(fileNames: string[]) {
-    await this.fileInput.setInputFiles(
+    await this.fileInput.first().setInputFiles(
       fileNames.map((f) => path.join(TEST_DATA_DIR, f)),
     );
   }
 
-  resultCardLinks() {
-    return this.resultsGrid.locator('a[href^="/media/"]');
+  successCardLinks() {
+    return this.previewGrid.locator('a[href^="/media/"]');
   }
 
   retryButton(index: number) {
-    return this.resultCards.nth(index).getByTestId('retry-button');
+    return this.fileCards.nth(index).getByTestId('retry-button');
   }
 }

@@ -12,11 +12,11 @@ e2eTest('bulk upload shows results grid with clickable thumbnails', async ({ upl
   await expect(uploadPage.submitButton).toHaveText('Upload 3 files');
   await uploadPage.submitButton.click();
 
-  // Wait for all uploads to complete — results grid appears with 3 cards
-  await expect(uploadPage.resultCardLinks()).toHaveCount(3);
+  // Wait for all uploads to complete — preview grid shows 3 success links
+  await expect(uploadPage.successCardLinks()).toHaveCount(3);
 
   // Each card links to a media page
-  const hrefs = await uploadPage.resultCardLinks().evaluateAll(
+  const hrefs = await uploadPage.successCardLinks().evaluateAll(
     (els) => els.map((el) => el.getAttribute('href')),
   );
   for (const href of hrefs) {
@@ -24,17 +24,28 @@ e2eTest('bulk upload shows results grid with clickable thumbnails', async ({ upl
   }
 });
 
-e2eTest('clicking result thumbnail navigates to media page', async ({ uploadPage, page, mediaPage }) => {
+e2eTest('result thumbnails link to media pages', async ({ uploadPage }) => {
   await uploadPage.goto();
   await uploadPage.selectFiles(['sokerivarasto.jpg', 'markus.png']);
   await uploadPage.submitButton.click();
 
-  await expect(uploadPage.resultCardLinks()).toHaveCount(2);
+  await expect(uploadPage.successCardLinks()).toHaveCount(2);
 
-  await uploadPage.resultCardLinks().first().click();
-  await expect(page).toHaveURL(/\/media\//);
-  await expect(uploadPage.resultsGrid).not.toBeVisible();
-  await expect(mediaPage.image).toBeVisible();
+  // Success cards have target="_blank" so verify href values instead of clicking
+  const hrefs = await uploadPage.successCardLinks().evaluateAll(
+    (els) => els.map((el) => el.getAttribute('href')),
+  );
+  for (const href of hrefs) {
+    expect(href).toMatch(/^\/media\//);
+  }
+
+  // Verify the links open in new tabs
+  const targets = await uploadPage.successCardLinks().evaluateAll(
+    (els) => els.map((el) => el.getAttribute('target')),
+  );
+  for (const target of targets) {
+    expect(target).toBe('_blank');
+  }
 });
 
 e2eTest('shows error for failed upload with retry button', async ({ uploadPage, page }) => {
@@ -58,9 +69,9 @@ e2eTest('shows error for failed upload with retry button', async ({ uploadPage, 
   await uploadPage.submitButton.click();
 
   // Wait for both to settle
-  await expect(uploadPage.resultCards).toHaveCount(2);
+  await expect(uploadPage.fileCards).toHaveCount(2);
   // One succeeds (has a link), one fails (has retry button)
-  await expect(uploadPage.resultCardLinks()).toHaveCount(1);
+  await expect(uploadPage.successCardLinks()).toHaveCount(1);
   await expect(page.getByTestId('retry-button')).toBeVisible();
 });
 
@@ -92,25 +103,26 @@ e2eTest('retry recovers failed upload', async ({ uploadPage, page }) => {
   await page.getByTestId('retry-button').click();
 
   // Both should now be successful
-  await expect(uploadPage.resultCardLinks()).toHaveCount(2);
+  await expect(uploadPage.successCardLinks()).toHaveCount(2);
 });
 
-e2eTest('upload more resets to selection', async ({ uploadPage }) => {
+e2eTest('single file upload shows success card with link', async ({ uploadPage, page }) => {
   await uploadPage.goto();
-  await uploadPage.selectFiles(['sokerivarasto.jpg', 'markus.png']);
+  await uploadPage.selectFiles(['sokerivarasto.jpg']);
   await uploadPage.submitButton.click();
 
-  await expect(uploadPage.resultCardLinks()).toHaveCount(2);
-  await uploadPage.uploadMoreButton.click();
+  // Wait for the success card to appear
+  await expect(uploadPage.successCardLinks()).toHaveCount(1);
 
-  // Back to selection: drop zone visible, no results grid
-  await expect(uploadPage.dropZone).toBeVisible();
-  await expect(uploadPage.resultsGrid).not.toBeVisible();
-});
+  // Verify the link points to a media page
+  const href = await uploadPage.successCardLinks().first().getAttribute('href');
+  expect(href).toMatch(/^\/media\//);
 
-e2eTest('single file upload still navigates to media page', async ({ uploadPage, page, mediaPage }) => {
-  await uploadPage.upload('sokerivarasto.jpg');
-
-  await expect(page).toHaveURL(/\/media\//);
-  await expect(mediaPage.image).toBeVisible();
+  // Click through to verify navigation (opens in new tab)
+  const popupPromise = page.waitForEvent('popup');
+  await uploadPage.successCardLinks().first().click();
+  const popup = await popupPromise;
+  await popup.waitForLoadState();
+  expect(popup.url()).toMatch(/\/media\//);
+  await popup.close();
 });
