@@ -783,6 +783,7 @@ async fn list_media(
     Query(params): Query<ListMediaParams>,
 ) -> Result<Json<MediaListResponse>, AppError> {
     let limit = params.limit.unwrap_or(20).min(50);
+    let offset = params.offset.map(|o| o.max(0));
 
     // Parse tag filter
     let tag_filter: Vec<String> = params
@@ -817,13 +818,10 @@ async fn list_media(
                 " AND search_vector @@ websearch_to_tsquery('simple', ${next_param})"
             ));
             next_param += 1;
-        }
-
-        if has_search {
             sql.push_str(&format!(
                 " ORDER BY ts_rank(search_vector, websearch_to_tsquery('simple', ${search_param_idx})) DESC, created_at DESC"
             ));
-            if params.offset.is_some() {
+            if offset.is_some() {
                 sql.push_str(&format!(" OFFSET ${next_param}"));
                 next_param += 1;
             }
@@ -844,9 +842,7 @@ async fn list_media(
         }
         if has_search {
             q = q.bind(params.search.as_ref().unwrap().trim());
-        }
-        if has_search {
-            if let Some(offset) = params.offset {
+            if let Some(offset) = offset {
                 q = q.bind(offset);
             }
         } else if let Some(cursor) = params.cursor {
@@ -893,10 +889,8 @@ async fn list_media(
         let limit_param = next_param;
         next_param += 1;
 
-        let offset_clause = if has_search && params.offset.is_some() {
-            let clause = format!("OFFSET ${next_param}");
-            // next_param += 1; // not needed, last param
-            clause
+        let offset_clause = if has_search && offset.is_some() {
+            format!("OFFSET ${next_param}")
         } else {
             String::new()
         };
@@ -921,16 +915,13 @@ async fn list_media(
         }
         if has_search {
             q = q.bind(params.search.as_ref().unwrap().trim());
-        }
-        if !has_search {
-            if let Some(cursor) = params.cursor {
-                q = q.bind(cursor);
-            }
+        } else if let Some(cursor) = params.cursor {
+            q = q.bind(cursor);
         }
         q = q.bind(tag_count);
         q = q.bind(limit + 1);
         if has_search {
-            if let Some(offset) = params.offset {
+            if let Some(offset) = offset {
                 q = q.bind(offset);
             }
         }
@@ -950,7 +941,7 @@ async fn list_media(
     };
 
     let next_offset = if has_more && has_search {
-        Some(params.offset.unwrap_or(0) + limit)
+        Some(offset.unwrap_or(0) + limit)
     } else {
         None
     };
