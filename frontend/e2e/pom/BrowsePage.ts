@@ -6,7 +6,9 @@ export class BrowsePage {
   readonly gridItems: Locator;
   readonly emptyState: Locator;
   readonly uploadLink: Locator;
-  readonly tagFilterInput: Locator;
+  readonly addFilterTagButton: Locator;
+  readonly addFilterTagInput: Locator;
+  readonly filterTagChips: Locator;
   readonly noMatchText: Locator;
   readonly typeFilterAll: Locator;
   readonly typeFilterPictures: Locator;
@@ -20,7 +22,9 @@ export class BrowsePage {
     this.gridItems = page.locator('[data-testid="media-grid"] a[href^="/media/"]');
     this.emptyState = page.getByText('No uploads yet');
     this.uploadLink = page.getByRole('link', { name: 'Upload something' });
-    this.tagFilterInput = page.getByTestId('tag-input-field');
+    this.addFilterTagButton = page.getByTestId('add-filter-tag-button');
+    this.addFilterTagInput = page.getByTestId('add-filter-tag-input');
+    this.filterTagChips = page.getByTestId('filter-tag-chip');
     this.noMatchText = page.getByText('No media matches the selected filters');
     this.typeFilterAll = page.getByTestId('type-filter-all');
     this.typeFilterPictures = page.getByTestId('type-filter-image');
@@ -54,8 +58,14 @@ export class BrowsePage {
   }
 
   async filterByTag(tag: string) {
-    await this.tagFilterInput.fill(tag);
-    await this.tagFilterInput.press('Enter');
+    await this.addFilterTagButton.click();
+    await this.addFilterTagInput.fill(tag);
+    await this.addFilterTagInput.press('Enter');
+    await this.addFilterTagInput.press('Escape');
+  }
+
+  async removeFilterTag(tag: string) {
+    await this.filterTagChips.filter({ hasText: tag }).getByRole('button').click();
   }
 
   cardNames() {
