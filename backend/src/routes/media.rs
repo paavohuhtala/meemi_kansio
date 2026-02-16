@@ -804,7 +804,6 @@ async fn list_media(
     let rows = if tag_filter.is_empty() {
         // ── No-tags branch ──
         let mut next_param = 1;
-        let mut search_param_idx = 0;
         let mut sql = String::from("SELECT * FROM media WHERE 1=1");
 
         if params.media_type.is_some() {
@@ -813,7 +812,7 @@ async fn list_media(
         }
 
         if has_search {
-            search_param_idx = next_param;
+            let search_param_idx = next_param;
             sql.push_str(&format!(
                 " AND search_vector @@ websearch_to_tsquery('simple', ${next_param})"
             ));
@@ -855,7 +854,6 @@ async fn list_media(
         let tag_count = tag_filter.len() as i64;
         // $1 = tags array, dynamic params start at $2
         let mut next_param = 2;
-        let mut search_param_idx = 0;
         let mut extra_where = String::new();
 
         if params.media_type.is_some() {
@@ -863,17 +861,20 @@ async fn list_media(
             next_param += 1;
         }
 
-        if has_search {
-            search_param_idx = next_param;
+        let search_param_idx = if has_search {
+            let idx = next_param;
             extra_where.push_str(&format!(
                 " AND m.search_vector @@ websearch_to_tsquery('simple', ${next_param})"
             ));
             next_param += 1;
-        }
+            Some(idx)
+        } else {
+            None
+        };
 
-        let order_by = if has_search {
+        let order_by = if let Some(idx) = search_param_idx {
             format!(
-                "ORDER BY ts_rank(m.search_vector, websearch_to_tsquery('simple', ${search_param_idx})) DESC, m.created_at DESC"
+                "ORDER BY ts_rank(m.search_vector, websearch_to_tsquery('simple', ${idx})) DESC, m.created_at DESC"
             )
         } else {
             if params.cursor.is_some() {
