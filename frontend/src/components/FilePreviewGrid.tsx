@@ -387,16 +387,18 @@ function FileCard({
         <FileName>{file.name}</FileName>
       </CardInfo>
 
-      <RemoveButton
-        onClick={(e) => {
-          e.stopPropagation();
-          e.preventDefault();
-          onRemove(id);
-        }}
-        aria-label={`Remove ${file.name}`}
-      >
-        <Cross2Icon />
-      </RemoveButton>
+      {status !== 'uploading' && (
+        <RemoveButton
+          onClick={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            onRemove(id);
+          }}
+          aria-label={`Remove ${file.name}`}
+        >
+          <Cross2Icon />
+        </RemoveButton>
+      )}
 
       {/* Hidden input for replace via click */}
       <HiddenInput

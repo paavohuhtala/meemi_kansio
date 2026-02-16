@@ -66,17 +66,11 @@ export function UploadPage() {
   });
 
   const pendingCount = entries.filter((e) => e.status === 'pending').length;
-  const hasNonPending = entries.some(
-    (e) => e.status === 'uploading' || e.status === 'success' || e.status === 'error',
-  );
+  const isUploading = entries.some((e) => e.status === 'uploading');
   const uploadDisabled = pendingCount === 0;
 
-  // Upload a single entry by id
-  function uploadEntry(id: string) {
-    const entry = entries.find((e) => e.id === id);
-    if (!entry) return;
-    const { file } = entry;
-
+  // Upload a single entry by id and file
+  function uploadEntry(id: string, file: File) {
     setEntries((prev) =>
       prev.map((e) =>
         e.id === id ? { ...e, status: 'uploading' as const } : e,
@@ -110,7 +104,7 @@ export function UploadPage() {
     if (pending.length === 0) return;
 
     for (const entry of pending) {
-      uploadEntry(entry.id);
+      uploadEntry(entry.id, entry.file);
     }
   }
 
@@ -141,7 +135,8 @@ export function UploadPage() {
   }
 
   function handleRetry(id: string) {
-    uploadEntry(id);
+    const entry = entries.find((e) => e.id === id);
+    if (entry) uploadEntry(id, entry.file);
   }
 
   function handleDropZoneChange(files: File[]) {
@@ -207,7 +202,7 @@ export function UploadPage() {
         <Button
           type="submit"
           disabled={uploadDisabled}
-          loading={hasNonPending && pendingCount === 0}
+          loading={isUploading}
           data-testid="upload-submit"
         >
           {uploadButtonText}
