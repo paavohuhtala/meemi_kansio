@@ -794,20 +794,17 @@ async fn list_media(
         .unwrap_or_default();
 
     let rows = if tag_filter.is_empty() {
+        let mut next_param = 1;
         let mut sql = String::from("SELECT * FROM media WHERE 1=1");
         if params.media_type.is_some() {
-            sql.push_str(" AND media_type = $1");
+            sql.push_str(&format!(" AND media_type = ${next_param}"));
+            next_param += 1;
         }
         if params.cursor.is_some() {
-            let n = if params.media_type.is_some() { "$2" } else { "$1" };
-            sql.push_str(&format!(" AND created_at < {n}"));
+            sql.push_str(&format!(" AND created_at < ${next_param}"));
+            next_param += 1;
         }
-        let limit_n = match (params.media_type.is_some(), params.cursor.is_some()) {
-            (true, true) => "$3",
-            (true, false) | (false, true) => "$2",
-            (false, false) => "$1",
-        };
-        sql.push_str(&format!(" ORDER BY created_at DESC LIMIT {limit_n}"));
+        sql.push_str(&format!(" ORDER BY created_at DESC LIMIT ${next_param}"));
 
         let mut q = sqlx::query_as::<_, Media>(&sql);
         if let Some(ref mt) = params.media_type {
