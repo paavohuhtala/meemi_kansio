@@ -11,6 +11,7 @@ export {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from './DropdownMenu';
+export { MasonryGrid } from './MasonryGrid';
 export { Media } from './Media';
 export { MediaOverlay } from './MediaOverlay';
 export { TagInput } from './TagInput';

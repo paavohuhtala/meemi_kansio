@@ -3,8 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import styled from 'styled-components';
 import { listMedia, type MediaItem } from '../api/media';
-import { Media, MediaOverlay, TagInput } from '../components';
-import { media as bp } from '../styles/theme';
+import { MasonryGrid, Media, MediaOverlay, TagInput } from '../components';
 
 const Container = styled.div`
   padding: ${({ theme }) => theme.spacing.lg};
@@ -15,34 +14,7 @@ const FilterBar = styled.div`
   margin-bottom: ${({ theme }) => theme.spacing.lg};
 `;
 
-const Grid = styled.div`
-  column-count: 1;
-  column-gap: ${({ theme }) => theme.spacing.md};
-
-  ${bp.md} {
-    column-count: 2;
-  }
-
-  ${bp.lg} {
-    column-count: 3;
-  }
-
-  ${bp.xl} {
-    column-count: 4;
-  }
-
-  ${bp.xxl} {
-    column-count: 5;
-  }
-
-  ${bp.xxxl} {
-    column-count: 6;
-  }
-`;
-
 const Card = styled.div`
-  break-inside: avoid;
-  margin-bottom: ${({ theme }) => theme.spacing.md};
   border-radius: ${({ theme }) => theme.borderRadius.md};
   overflow: hidden;
   background: ${({ theme }) => theme.colors.surface};
@@ -161,6 +133,15 @@ function aspectRatio(item: MediaItem): string | undefined {
   return undefined;
 }
 
+function getItemHeight(item: MediaItem, columnWidth: number): number {
+  const ratio = item.width && item.height ? item.width / item.height : 16 / 9;
+  return columnWidth / ratio + (item.tags.length > 0 ? 28 : 0);
+}
+
+function getItemKey(item: MediaItem): string {
+  return item.id;
+}
+
 
 export function HomePage() {
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -244,9 +225,12 @@ export function HomePage() {
           <p>No media matches the selected tags.</p>
         </EmptyState>
       )}
-      <Grid data-testid="media-grid">
-        {items.map((item) => (
-          <Card key={item.id}>
+      <MasonryGrid
+        items={items}
+        getItemHeight={getItemHeight}
+        getItemKey={getItemKey}
+        renderItem={(item) => (
+          <Card>
             <CardLink to={`/media/${item.id}`}>
               <CardMedia $ratio={aspectRatio(item)}>
                 <Media
@@ -279,8 +263,9 @@ export function HomePage() {
               </CardTags>
             )}
           </Card>
-        ))}
-      </Grid>
+        )}
+        data-testid="media-grid"
+      />
       <Sentinel ref={sentinelRef} />
       {isFetchingNextPage && <LoadingText>Loading more...</LoadingText>}
     </Container>
