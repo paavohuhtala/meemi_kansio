@@ -61,3 +61,36 @@ jobs:
             | while read -r tag; do
                 gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag
               done
+
+  cleanup-registry:
+    runs-on: ubuntu-latest
+    needs: [deploy]
+    environment: production
+    steps:
+      - name: Delete old container image tags
+        env:
+          SCW_SECRET_KEY: ${{ secrets.SCW_SECRET_KEY }}
+          SCW_REGISTRY_NAMESPACE: ${{ secrets.SCW_REGISTRY_NAMESPACE }}
+          DEPLOYED_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          IMAGE_TAG="${DEPLOYED_TAG#build-}"
+          API="https://api.scaleway.com/registry/v1/regions/fr-par"
+
+          NS_ID=$(curl -sf -H "x-auth-token: $SCW_SECRET_KEY" \
+            "$API/namespaces" \
+            | jq -r ".namespaces[] | select(.name == \"$SCW_REGISTRY_NAMESPACE\") | .id")
+
+          IMG_ID=$(curl -sf -H "x-auth-token: $SCW_SECRET_KEY" \
+            "$API/images?namespace_id=$NS_ID&name=meemit-backend" \
+            | jq -r '.images[0].id')
+
+          curl -sf -H "x-auth-token: $SCW_SECRET_KEY" \
+            "$API/images/$IMG_ID/tags?page_size=100" \
+            | jq -r ".tags[] | select(.name != \"$IMAGE_TAG\" and .name != \"latest\" and .name != \"buildcache\") | .id + \" \" + .name" \
+            | while read -r tag_id tag_name; do
+                echo "Deleting tag: $tag_name"
+                curl -sf -X DELETE -H "x-auth-token: $SCW_SECRET_KEY" \
+                  "$API/tags/$tag_id"
+              done
+
+          echo "Registry cleanup complete"
