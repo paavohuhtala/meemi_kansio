@@ -9,8 +9,6 @@ export class UploadPage {
   readonly submitButton: Locator;
   readonly errorText: Locator;
   readonly dropZone: Locator;
-  readonly previewImage: Locator;
-  readonly previewVideo: Locator;
   readonly previewGrid: Locator;
   readonly fileCards: Locator;
   readonly addFileCard: Locator;
@@ -21,8 +19,6 @@ export class UploadPage {
     this.submitButton = page.getByTestId('upload-submit');
     this.errorText = page.getByText(/unsupported|failed|error/i);
     this.dropZone = page.getByTestId('drop-zone');
-    this.previewImage = page.getByTestId('upload-preview-image');
-    this.previewVideo = page.getByTestId('upload-preview-video');
     this.previewGrid = page.getByTestId('preview-grid');
     this.fileCards = page.getByTestId('file-card');
     this.addFileCard = page.getByTestId('add-file-card');

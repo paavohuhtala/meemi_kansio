@@ -52,8 +52,7 @@ e2eTest('selecting unsupported file type does not show preview', async ({ upload
     path.join(TEST_DATA_DIR, 'invalid.unknown'),
   );
 
-  await expect(uploadPage.previewImage).not.toBeVisible();
-  await expect(uploadPage.previewVideo).not.toBeVisible();
+  await expect(uploadPage.fileCards).toHaveCount(0);
   await expect(uploadPage.submitButton).toBeDisabled();
 });
 
@@ -63,7 +62,7 @@ e2eTest('shows image preview after selecting file', async ({ uploadPage }) => {
     path.join(TEST_DATA_DIR, 'sokerivarasto.jpg'),
   );
 
-  await expect(uploadPage.previewImage).toBeVisible();
+  await expect(uploadPage.fileCards.first()).toBeVisible();
 });
 
 e2eTest('shows video preview after selecting file', async ({ uploadPage }) => {
@@ -72,7 +71,7 @@ e2eTest('shows video preview after selecting file', async ({ uploadPage }) => {
     path.join(TEST_DATA_DIR, 'kitten_horn.mp4'),
   );
 
-  await expect(uploadPage.previewVideo).toBeVisible();
+  await expect(uploadPage.fileCards.first()).toBeVisible();
 });
 
 e2eTest('upload JPG returns thumbnail URLs', async ({ page, uploadPage }) => {

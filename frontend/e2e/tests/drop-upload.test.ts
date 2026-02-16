@@ -65,7 +65,7 @@ e2eTest.describe('drag-drop and paste upload', () => {
       }, Array.from(fileBuffer));
 
       await expect(page).toHaveURL('/upload');
-      await expect(uploadPage.previewImage).toBeVisible();
+      await expect(uploadPage.fileCards.first()).toBeVisible();
     },
   );
 
@@ -95,13 +95,13 @@ e2eTest.describe('drag-drop and paste upload', () => {
       }, Array.from(fileBuffer));
 
       await expect(page).toHaveURL('/upload');
-      await expect(uploadPage.previewImage).toBeVisible();
+      await expect(uploadPage.fileCards.first()).toBeVisible();
     },
   );
 
   e2eTest(
     'dropping multiple files on browse page navigates to upload with all files',
-    async ({ browsePage, page }) => {
+    async ({ browsePage, uploadPage, page }) => {
       await browsePage.goto();
       await browsePage.emptyState.waitFor({ state: 'visible' });
 
@@ -122,7 +122,7 @@ e2eTest.describe('drag-drop and paste upload', () => {
       }, [Array.from(jpg), Array.from(png)]);
 
       await expect(page).toHaveURL('/upload');
-      await expect(page.getByText('2 files selected')).toBeVisible();
+      await expect(uploadPage.fileCards).toHaveCount(2);
     },
   );
 });
