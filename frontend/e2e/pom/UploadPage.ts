@@ -41,7 +41,8 @@ export class UploadPage {
     await successLink.waitFor();
     // Success links have target="_blank", so navigate directly instead of clicking
     const href = await successLink.getAttribute('href');
-    await this.page.goto(href!);
+    if (!href) throw new Error('Success card link has no href attribute');
+    await this.page.goto(href);
   }
 
   async selectFiles(fileNames: string[]) {

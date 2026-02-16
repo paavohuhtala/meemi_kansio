@@ -15,35 +15,12 @@ e2eTest('bulk upload shows results grid with clickable thumbnails', async ({ upl
   // Wait for all uploads to complete — preview grid shows 3 success links
   await expect(uploadPage.successCardLinks()).toHaveCount(3);
 
-  // Each card links to a media page
-  const hrefs = await uploadPage.successCardLinks().evaluateAll(
-    (els) => els.map((el) => el.getAttribute('href')),
+  // Each card links to a media page and opens in a new tab
+  const attrs = await uploadPage.successCardLinks().evaluateAll(
+    (els) => els.map((el) => ({ href: el.getAttribute('href'), target: el.getAttribute('target') })),
   );
-  for (const href of hrefs) {
+  for (const { href, target } of attrs) {
     expect(href).toMatch(/^\/media\//);
-  }
-});
-
-e2eTest('result thumbnails link to media pages', async ({ uploadPage }) => {
-  await uploadPage.goto();
-  await uploadPage.selectFiles(['sokerivarasto.jpg', 'markus.png']);
-  await uploadPage.submitButton.click();
-
-  await expect(uploadPage.successCardLinks()).toHaveCount(2);
-
-  // Success cards have target="_blank" so verify href values instead of clicking
-  const hrefs = await uploadPage.successCardLinks().evaluateAll(
-    (els) => els.map((el) => el.getAttribute('href')),
-  );
-  for (const href of hrefs) {
-    expect(href).toMatch(/^\/media\//);
-  }
-
-  // Verify the links open in new tabs
-  const targets = await uploadPage.successCardLinks().evaluateAll(
-    (els) => els.map((el) => el.getAttribute('target')),
-  );
-  for (const target of targets) {
     expect(target).toBe('_blank');
   }
 });
@@ -72,7 +49,7 @@ e2eTest('shows error for failed upload with retry button', async ({ uploadPage, 
   await expect(uploadPage.fileCards).toHaveCount(2);
   // One succeeds (has a link), one fails (has retry button)
   await expect(uploadPage.successCardLinks()).toHaveCount(1);
-  await expect(page.getByTestId('retry-button')).toBeVisible();
+  await expect(uploadPage.retryButton(1)).toBeVisible();
 });
 
 e2eTest('retry recovers failed upload', async ({ uploadPage, page }) => {
@@ -95,12 +72,12 @@ e2eTest('retry recovers failed upload', async ({ uploadPage, page }) => {
   await uploadPage.submitButton.click();
 
   // Wait for failure card
-  await expect(page.getByTestId('retry-button')).toBeVisible();
+  await expect(uploadPage.retryButton(1)).toBeVisible();
 
   // Remove route intercept so retry succeeds
   await page.unroute('**/api/media/upload');
 
-  await page.getByTestId('retry-button').click();
+  await uploadPage.retryButton(1).click();
 
   // Both should now be successful
   await expect(uploadPage.successCardLinks()).toHaveCount(2);
