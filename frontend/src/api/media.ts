@@ -41,10 +41,13 @@ export function getMedia(id: string) {
   return apiFetch<MediaItem>(`/media/${id}`);
 }
 
-export function listMedia(cursor?: string, tags?: string[]) {
+export type MediaTypeFilter = 'image' | 'video' | 'gif';
+
+export function listMedia(cursor?: string, tags?: string[], mediaType?: MediaTypeFilter) {
   const params = new URLSearchParams();
   if (cursor) params.set('cursor', cursor);
   if (tags && tags.length > 0) params.set('tags', tags.join(','));
+  if (mediaType) params.set('media_type', mediaType);
   const qs = params.toString();
   return apiFetch<MediaPage>(`/media${qs ? `?${qs}` : ''}`);
 }
