@@ -20,6 +20,7 @@ const FilterRow = styled.div`
 const TagFilterWrapper = styled.div`
   flex: 1;
   min-width: 200px;
+  max-width: 600px;
 `;
 
 const TypeFilterGroup = styled.div`
