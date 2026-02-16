@@ -5,7 +5,14 @@ e2eTest.beforeEach(async ({ registerPage, page }) => {
   await page.waitForURL('/');
 });
 
-e2eTest('type filter buttons are visible on browse page', async ({ browsePage }) => {
+e2eTest('type filter buttons are visible on browse page', async ({
+  page,
+  uploadPage,
+  browsePage,
+}) => {
+  await uploadPage.upload('sokerivarasto.jpg');
+  await page.waitForURL(/\/media\//);
+
   await browsePage.goto();
 
   await expect(browsePage.typeFilterAll).toBeVisible();
