@@ -214,7 +214,10 @@ export function HomePage() {
 
   function tagFilterUrl(tag: string): string {
     const tags = filterTags.includes(tag) ? filterTags : [...filterTags, tag];
-    return `/?tags=${tags.join(',')}`;
+    const params = new URLSearchParams();
+    params.set('tags', tags.join(','));
+    if (filterType) params.set('type', filterType);
+    return `/?${params.toString()}`;
   }
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } =
