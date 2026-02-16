@@ -8,9 +8,11 @@ mod storage;
 mod thumbnails;
 mod video;
 
+use std::process;
 use std::sync::Arc;
 
 use axum::{extract::State, routing::get, Json, Router};
+use clap::Parser;
 use config::Config;
 use ocr_rs::OcrEngine;
 use sqlx::PgPool;
@@ -28,6 +30,33 @@ pub struct AppState {
     pub storage: StorageBackend,
 }
 
+#[derive(Parser)]
+#[command(about = "meemi_kansio media sharing server")]
+struct Cli {
+    #[command(subcommand)]
+    command: Option<Command>,
+}
+
+#[derive(clap::Subcommand)]
+enum Command {
+    /// Start the HTTP server (default when no command is given)
+    Serve,
+    /// Admin management commands
+    Admin {
+        #[command(subcommand)]
+        action: AdminAction,
+    },
+}
+
+#[derive(clap::Subcommand)]
+enum AdminAction {
+    /// Set a user's password
+    SetPassword {
+        /// Username of the account to update
+        username: String,
+    },
+}
+
 async fn health(State(state): State<AppState>) -> Json<serde_json::Value> {
     let row: (i32,) = sqlx::query_as("SELECT 1").fetch_one(&state.db).await.unwrap();
     Json(serde_json::json!({ "status": "ok", "db": row.0 == 1 }))
@@ -35,6 +64,77 @@ async fn health(State(state): State<AppState>) -> Json<serde_json::Value> {
 
 #[tokio::main]
 async fn main() {
+    let cli = Cli::parse();
+
+    match cli.command {
+        None | Some(Command::Serve) => run_server().await,
+        Some(Command::Admin { action }) => run_admin(action).await,
+    }
+}
+
+async fn run_admin(action: AdminAction) {
+    dotenvy::dotenv().ok();
+    let config = Config::from_env();
+
+    let db = PgPool::connect(&config.database_url)
+        .await
+        .expect("failed to connect to database");
+
+    sqlx::migrate!()
+        .run(&db)
+        .await
+        .expect("failed to run migrations");
+
+    match action {
+        AdminAction::SetPassword { username } => admin_set_password(&db, &username).await,
+    }
+}
+
+async fn admin_set_password(db: &PgPool, username: &str) {
+    let password = rpassword::prompt_password("New password: ").unwrap_or_else(|e| {
+        eprintln!("Failed to read password: {e}");
+        process::exit(1);
+    });
+
+    let confirm = rpassword::prompt_password("Confirm password: ").unwrap_or_else(|e| {
+        eprintln!("Failed to read password: {e}");
+        process::exit(1);
+    });
+
+    if password != confirm {
+        eprintln!("Passwords do not match");
+        process::exit(1);
+    }
+
+    if password.len() < 8 {
+        eprintln!("Password must be at least 8 characters");
+        process::exit(1);
+    }
+
+    let hash = auth::password::hash_password(&password).unwrap_or_else(|e| {
+        eprintln!("Failed to hash password: {e}");
+        process::exit(1);
+    });
+
+    let result = sqlx::query("UPDATE users SET password_hash = $1, updated_at = now() WHERE username = $2")
+        .bind(&hash)
+        .bind(username)
+        .execute(db)
+        .await
+        .unwrap_or_else(|e| {
+            eprintln!("Database error: {e}");
+            process::exit(1);
+        });
+
+    if result.rows_affected() == 0 {
+        eprintln!("User '{}' not found", username);
+        process::exit(1);
+    }
+
+    println!("Password updated for '{}'", username);
+}
+
+async fn run_server() {
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()))
         .init();
