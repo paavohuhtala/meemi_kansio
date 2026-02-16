@@ -21,6 +21,7 @@ export interface MediaItem {
 export interface MediaPage {
   items: MediaItem[];
   next_cursor: string | null;
+  next_offset?: number | null;
 }
 
 export interface Tag {
@@ -43,9 +44,20 @@ export function getMedia(id: string) {
 
 export type MediaTypeFilter = 'image' | 'video' | 'gif';
 
-export function listMedia(cursor?: string, tags?: string[], mediaType?: MediaTypeFilter) {
+export function listMedia(
+  cursor?: string,
+  tags?: string[],
+  mediaType?: MediaTypeFilter,
+  search?: string,
+  offset?: number,
+) {
   const params = new URLSearchParams();
-  if (cursor) params.set('cursor', cursor);
+  if (search) {
+    params.set('search', search);
+    if (offset) params.set('offset', String(offset));
+  } else {
+    if (cursor) params.set('cursor', cursor);
+  }
   if (tags && tags.length > 0) params.set('tags', tags.join(','));
   if (mediaType) params.set('media_type', mediaType);
   const qs = params.toString();
