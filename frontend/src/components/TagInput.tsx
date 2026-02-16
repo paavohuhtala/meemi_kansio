@@ -65,6 +65,10 @@ const InlineInput = styled.input`
   color: ${({ theme }) => theme.colors.text};
   padding: 2px 0;
 
+  &:focus-visible {
+    outline: none;
+  }
+
   &::placeholder {
     color: ${({ theme }) => theme.colors.textSecondary};
   }

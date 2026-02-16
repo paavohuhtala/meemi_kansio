@@ -48,6 +48,10 @@ const SearchBarInput = styled.input`
   font-size: ${({ theme }) => theme.fontSize.md};
   color: ${({ theme }) => theme.colors.text};
 
+  &:focus-visible {
+    outline: none;
+  }
+
   &::placeholder {
     color: ${({ theme }) => theme.colors.textSecondary};
   }
@@ -92,7 +96,8 @@ const CardLink = styled(Link)`
   display: block;
   position: relative;
 
-  &:hover [data-overlay] {
+  &:hover [data-overlay],
+  &:focus-visible [data-overlay] {
     opacity: 1;
   }
 `;

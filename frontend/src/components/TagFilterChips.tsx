@@ -87,7 +87,8 @@ const InlineInput = styled.input`
   border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: ${({ theme }) => theme.borderRadius.sm};
 
-  &:focus {
+  &:focus-visible {
+    outline: none;
     border-color: ${({ theme }) => theme.colors.primary};
   }
 

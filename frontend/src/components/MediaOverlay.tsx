@@ -18,6 +18,10 @@ const Wrapper = styled.div`
   opacity: 0;
   transition: opacity 0.15s;
   z-index: 2;
+
+  &:focus-within {
+    opacity: 1;
+  }
 `;
 
 const IconButton = styled.button`
@@ -34,6 +38,11 @@ const IconButton = styled.button`
 
   &:hover {
     background: rgba(0, 0, 0, 0.8);
+  }
+
+  &:focus-visible {
+    outline: 2px solid white;
+    outline-offset: -2px;
   }
 `;
 

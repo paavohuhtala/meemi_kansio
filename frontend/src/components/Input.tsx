@@ -9,7 +9,7 @@ const StyledInput = styled.input`
   font-size: ${({ theme }) => theme.fontSize.md};
   padding: ${({ theme }) => theme.spacing.sm} ${({ theme }) => theme.spacing.md};
 
-  &:focus {
+  &:focus-visible {
     outline: none;
     border-color: ${({ theme }) => theme.colors.primary};
   }

@@ -51,7 +51,8 @@ const MediaWrapper = styled.div`
   overflow: hidden;
   background: ${({ theme }) => theme.colors.surface};
 
-  &:hover [data-overlay] {
+  &:hover [data-overlay],
+  &:focus-within [data-overlay] {
     opacity: 1;
   }
 
@@ -88,6 +89,10 @@ const TitleInput = styled.input`
   font-weight: inherit;
   color: ${({ theme }) => theme.colors.text};
   width: 100%;
+
+  &:focus-visible {
+    outline: none;
+  }
 `;
 
 const Description = styled.textarea<{ $editing: boolean }>`

@@ -18,4 +18,9 @@ export const GlobalStyle = createGlobalStyle`
     color: ${({ theme }) => theme.colors.primary};
     text-decoration: none;
   }
+
+  :focus-visible {
+    outline: 2px solid ${({ theme }) => theme.colors.primary};
+    outline-offset: 2px;
+  }
 `;

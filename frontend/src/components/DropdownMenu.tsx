@@ -36,6 +36,10 @@ export const DropdownMenuItem = styled(DropdownMenu.Item)`
     background: ${({ theme }) => theme.colors.surfaceHover};
     outline: none;
   }
+
+  &:focus-visible {
+    outline: none;
+  }
 `;
 
 export const DropdownMenuLabel = styled(DropdownMenu.Label)`
