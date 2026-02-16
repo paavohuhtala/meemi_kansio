@@ -235,31 +235,35 @@ export function HomePage() {
 
   const searchQuery = searchParams.get('search') ?? '';
   const [searchInput, setSearchInput] = useState(searchQuery);
+  const prevSearchQuery = useRef(searchQuery);
+
+  if (prevSearchQuery.current !== searchQuery) {
+    prevSearchQuery.current = searchQuery;
+    if (searchInput !== searchQuery) {
+      setSearchInput(searchQuery);
+    }
+  }
 
   const debouncedSetSearch = useMemo(
     () =>
       debounce((value: string) => {
-        if (value) {
-          searchParams.set('search', value);
-        } else {
-          searchParams.delete('search');
-        }
-        setSearchParams(searchParams, { replace: true });
+        setSearchParams((prev) => {
+          const next = new URLSearchParams(prev);
+          if (value) {
+            next.set('search', value);
+          } else {
+            next.delete('search');
+          }
+          return next;
+        }, { replace: true });
       }, 300),
-    [searchParams, setSearchParams],
+    [setSearchParams],
   );
 
   useEffect(() => {
     debouncedSetSearch(searchInput);
     return () => debouncedSetSearch.cancel();
   }, [searchInput, debouncedSetSearch]);
-
-  useEffect(() => {
-    const urlSearch = searchParams.get('search') ?? '';
-    if (urlSearch !== searchInput) {
-      setSearchInput(urlSearch);
-    }
-  }, [searchParams]);
 
   function tagFilterUrl(tag: string): string {
     const tags = filterTags.includes(tag) ? filterTags : [...filterTags, tag];
