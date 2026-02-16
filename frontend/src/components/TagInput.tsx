@@ -216,6 +216,7 @@ export function TagInput({ tags, onChange, placeholder }: TagInputProps) {
         onKeyDown={handleKeyDown}
         onFocus={() => input && setOpen(true)}
         placeholder={tags.length === 0 ? placeholder : undefined}
+        maxLength={30}
         data-testid="tag-input-field"
       />
       {open && filteredSuggestions.length > 0 && (

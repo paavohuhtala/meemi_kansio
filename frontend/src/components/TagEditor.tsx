@@ -475,6 +475,7 @@ export function TagEditor({ tags, onSave }: TagEditorProps) {
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
               placeholder="Type tag name..."
+              maxLength={30}
               data-testid="add-tag-input"
               autoComplete="off"
             />
