@@ -2,16 +2,46 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import styled from 'styled-components';
-import { listMedia, type MediaItem } from '../api/media';
+import { listMedia, type MediaItem, type MediaTypeFilter } from '../api/media';
 import { MasonryGrid, Media, MediaOverlay, TagInput } from '../components';
 
 const Container = styled.div`
   padding: ${({ theme }) => theme.spacing.lg};
 `;
 
-const FilterBar = styled.div`
-  max-width: 600px;
+const FilterRow = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: ${({ theme }) => theme.spacing.sm};
+  align-items: center;
   margin-bottom: ${({ theme }) => theme.spacing.lg};
+`;
+
+const TagFilterWrapper = styled.div`
+  flex: 1;
+  min-width: 200px;
+`;
+
+const TypeFilterGroup = styled.div`
+  display: flex;
+  gap: ${({ theme }) => theme.spacing.xs};
+`;
+
+const TypeFilterButton = styled.button<{ $active?: boolean }>`
+  padding: ${({ theme }) => theme.spacing.xs} ${({ theme }) => theme.spacing.md};
+  border-radius: ${({ theme }) => theme.borderRadius.md};
+  border: 1px solid ${({ theme, $active }) => $active ? theme.colors.primary : theme.colors.border};
+  background: ${({ theme, $active }) => $active ? theme.colors.primary : 'transparent'};
+  color: ${({ theme, $active }) => $active ? '#fff' : theme.colors.textSecondary};
+  font-size: ${({ theme }) => theme.fontSize.sm};
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+
+  &:hover {
+    border-color: ${({ theme }) => theme.colors.primary};
+    color: ${({ theme, $active }) => $active ? '#fff' : theme.colors.text};
+  }
 `;
 
 const Card = styled.div`
@@ -165,6 +195,20 @@ export function HomePage() {
     [searchParams, setSearchParams],
   );
 
+  const filterType = (searchParams.get('type') as MediaTypeFilter) || undefined;
+
+  const setFilterType = useCallback(
+    (type: MediaTypeFilter | undefined) => {
+      if (type) {
+        searchParams.set('type', type);
+      } else {
+        searchParams.delete('type');
+      }
+      setSearchParams(searchParams, { replace: true });
+    },
+    [searchParams, setSearchParams],
+  );
+
   function tagFilterUrl(tag: string): string {
     const tags = filterTags.includes(tag) ? filterTags : [...filterTags, tag];
     return `/?tags=${tags.join(',')}`;
@@ -172,9 +216,13 @@ export function HomePage() {
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } =
     useInfiniteQuery({
-      queryKey: ['media-list', { tags: filterTags }],
+      queryKey: ['media-list', { tags: filterTags, type: filterType }],
       queryFn: ({ pageParam }) =>
-        listMedia(pageParam, filterTags.length > 0 ? filterTags : undefined),
+        listMedia(
+          pageParam,
+          filterTags.length > 0 ? filterTags : undefined,
+          filterType,
+        ),
       initialPageParam: undefined as string | undefined,
       getNextPageParam: (lastPage) => lastPage.next_cursor ?? undefined,
     });
@@ -213,16 +261,30 @@ export function HomePage() {
 
   return (
     <Container>
-      <FilterBar>
-        <TagInput
-          tags={filterTags}
-          onChange={setFilterTags}
-          placeholder="Filter by tags"
-        />
-      </FilterBar>
-      {items.length === 0 && filterTags.length > 0 && (
+      <FilterRow>
+        <TagFilterWrapper>
+          <TagInput
+            tags={filterTags}
+            onChange={setFilterTags}
+            placeholder="Filter by tags"
+          />
+        </TagFilterWrapper>
+        <TypeFilterGroup>
+          {([undefined, 'image', 'gif', 'video'] as const).map((type) => (
+            <TypeFilterButton
+              key={type ?? 'all'}
+              $active={filterType === type}
+              onClick={() => setFilterType(type as MediaTypeFilter | undefined)}
+              data-testid={`type-filter-${type ?? 'all'}`}
+            >
+              {type === undefined ? 'All' : type === 'image' ? 'Pictures' : type === 'gif' ? 'GIFs' : 'Videos'}
+            </TypeFilterButton>
+          ))}
+        </TypeFilterGroup>
+      </FilterRow>
+      {items.length === 0 && (filterTags.length > 0 || filterType) && (
         <EmptyState>
-          <p>No media matches the selected tags.</p>
+          <p>No media matches the selected filters.</p>
         </EmptyState>
       )}
       <MasonryGrid
