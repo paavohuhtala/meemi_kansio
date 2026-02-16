@@ -251,11 +251,12 @@ export function HomePage() {
     return () => observer.disconnect();
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  if (isLoading) return <LoadingText>Loading...</LoadingText>;
-
   const items = data?.pages.flatMap((p) => p.items) ?? [];
+  const hasFilters = filterTags.length > 0 || !!filterType;
 
-  if (items.length === 0 && filterTags.length === 0 && !filterType) {
+  if (isLoading && !hasFilters) return <LoadingText>Loading...</LoadingText>;
+
+  if (items.length === 0 && !hasFilters && !isLoading) {
     return (
       <EmptyState>
         <p>No uploads yet.</p>
@@ -289,12 +290,15 @@ export function HomePage() {
           ))}
         </TypeFilterGroup>
       </FilterRow>
-      {items.length === 0 && (filterTags.length > 0 || filterType) && (
+      {isLoading && (
+        <LoadingText>Loading...</LoadingText>
+      )}
+      {!isLoading && items.length === 0 && hasFilters && (
         <EmptyState>
           <p>No media matches the selected filters.</p>
         </EmptyState>
       )}
-      <MasonryGrid
+      {!isLoading && <MasonryGrid
         items={items}
         getItemHeight={getItemHeight}
         getItemKey={getItemKey}
@@ -334,7 +338,7 @@ export function HomePage() {
           </Card>
         )}
         data-testid="media-grid"
-      />
+      />}
       <Sentinel ref={sentinelRef} />
       {isFetchingNextPage && <LoadingText>Loading more...</LoadingText>}
     </Container>
