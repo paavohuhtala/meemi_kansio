@@ -29,3 +29,4 @@ export {
   AlertDialogCancel,
   AlertDialogAction,
 } from './AlertDialog';
+export { FilePreviewGrid, type FileEntry } from './FilePreviewGrid';
