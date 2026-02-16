@@ -772,6 +772,7 @@ struct ListMediaParams {
     cursor: Option<DateTime<Utc>>,
     limit: Option<i64>,
     tags: Option<String>,
+    media_type: Option<MediaType>,
 }
 
 async fn list_media(
@@ -793,58 +794,65 @@ async fn list_media(
         .unwrap_or_default();
 
     let rows = if tag_filter.is_empty() {
-        // No tag filter — existing behavior
-        if let Some(cursor) = params.cursor {
-            sqlx::query_as::<_, Media>(
-                "SELECT * FROM media WHERE created_at < $1 ORDER BY created_at DESC LIMIT $2",
-            )
-            .bind(cursor)
-            .bind(limit + 1)
-            .fetch_all(&state.db)
-            .await?
-        } else {
-            sqlx::query_as::<_, Media>("SELECT * FROM media ORDER BY created_at DESC LIMIT $1")
-                .bind(limit + 1)
-                .fetch_all(&state.db)
-                .await?
+        let mut sql = String::from("SELECT * FROM media WHERE 1=1");
+        if params.media_type.is_some() {
+            sql.push_str(" AND media_type = $1");
         }
+        if params.cursor.is_some() {
+            let n = if params.media_type.is_some() { "$2" } else { "$1" };
+            sql.push_str(&format!(" AND created_at < {n}"));
+        }
+        let limit_n = match (params.media_type.is_some(), params.cursor.is_some()) {
+            (true, true) => "$3",
+            (true, false) | (false, true) => "$2",
+            (false, false) => "$1",
+        };
+        sql.push_str(&format!(" ORDER BY created_at DESC LIMIT {limit_n}"));
+
+        let mut q = sqlx::query_as::<_, Media>(&sql);
+        if let Some(ref mt) = params.media_type {
+            q = q.bind(mt);
+        }
+        if let Some(cursor) = params.cursor {
+            q = q.bind(cursor);
+        }
+        q = q.bind(limit + 1);
+        q.fetch_all(&state.db).await?
     } else {
-        // Filter by tags (AND logic)
         let tag_count = tag_filter.len() as i64;
-        if let Some(cursor) = params.cursor {
-            sqlx::query_as::<_, Media>(
-                "SELECT m.* FROM media m
-                 JOIN media_tags mt ON mt.media_id = m.id
-                 JOIN tags t ON t.id = mt.tag_id
-                 WHERE t.name = ANY($1) AND m.created_at < $2
-                 GROUP BY m.id
-                 HAVING COUNT(DISTINCT t.name) = $3
-                 ORDER BY m.created_at DESC
-                 LIMIT $4",
-            )
-            .bind(&tag_filter)
-            .bind(cursor)
-            .bind(tag_count)
-            .bind(limit + 1)
-            .fetch_all(&state.db)
-            .await?
-        } else {
-            sqlx::query_as::<_, Media>(
-                "SELECT m.* FROM media m
-                 JOIN media_tags mt ON mt.media_id = m.id
-                 JOIN tags t ON t.id = mt.tag_id
-                 WHERE t.name = ANY($1)
-                 GROUP BY m.id
-                 HAVING COUNT(DISTINCT t.name) = $2
-                 ORDER BY m.created_at DESC
-                 LIMIT $3",
-            )
-            .bind(&tag_filter)
-            .bind(tag_count)
-            .bind(limit + 1)
-            .fetch_all(&state.db)
-            .await?
+        // $1 = tags array, next params are dynamic
+        let mut next_param = 2;
+        let mut extra_where = String::new();
+        if params.media_type.is_some() {
+            extra_where.push_str(&format!(" AND m.media_type = ${next_param}"));
+            next_param += 1;
         }
+        if params.cursor.is_some() {
+            extra_where.push_str(&format!(" AND m.created_at < ${next_param}"));
+            next_param += 1;
+        }
+        let sql = format!(
+            "SELECT m.* FROM media m
+             JOIN media_tags mt ON mt.media_id = m.id
+             JOIN tags t ON t.id = mt.tag_id
+             WHERE t.name = ANY($1){extra_where}
+             GROUP BY m.id
+             HAVING COUNT(DISTINCT t.name) = ${next_param}
+             ORDER BY m.created_at DESC
+             LIMIT ${}", next_param + 1
+        );
+
+        let mut q = sqlx::query_as::<_, Media>(&sql);
+        q = q.bind(&tag_filter);
+        if let Some(ref mt) = params.media_type {
+            q = q.bind(mt);
+        }
+        if let Some(cursor) = params.cursor {
+            q = q.bind(cursor);
+        }
+        q = q.bind(tag_count);
+        q = q.bind(limit + 1);
+        q.fetch_all(&state.db).await?
     };
 
     let has_more = rows.len() as i64 > limit;
