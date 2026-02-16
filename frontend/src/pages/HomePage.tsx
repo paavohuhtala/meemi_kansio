@@ -3,11 +3,54 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { debounce } from 'es-toolkit';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import styled from 'styled-components';
+import { MagnifyingGlassIcon } from '@radix-ui/react-icons';
 import { listMedia, type MediaItem, type MediaTypeFilter } from '../api/media';
-import { MasonryGrid, Media, MediaOverlay, TagInput } from '../components';
+import { MasonryGrid, Media, MediaOverlay, TagFilterChips } from '../components';
 
 const Container = styled.div`
   padding: ${({ theme }) => theme.spacing.lg};
+`;
+
+const FilterContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${({ theme }) => theme.spacing.sm};
+  margin-bottom: ${({ theme }) => theme.spacing.lg};
+`;
+
+const SearchBar = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.sm};
+  background: ${({ theme }) => theme.colors.bg};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: ${({ theme }) => theme.borderRadius.md};
+  padding: ${({ theme }) => theme.spacing.xs} ${({ theme }) => theme.spacing.md};
+
+  &:focus-within {
+    border-color: ${({ theme }) => theme.colors.primary};
+  }
+`;
+
+const SearchIcon = styled.div`
+  display: flex;
+  color: ${({ theme }) => theme.colors.textSecondary};
+
+  svg {
+    width: 16px;
+    height: 16px;
+  }
+`;
+
+const SearchBarInput = styled.input`
+  all: unset;
+  flex: 1;
+  font-size: ${({ theme }) => theme.fontSize.md};
+  color: ${({ theme }) => theme.colors.text};
+
+  &::placeholder {
+    color: ${({ theme }) => theme.colors.textSecondary};
+  }
 `;
 
 const FilterRow = styled.div`
@@ -15,32 +58,6 @@ const FilterRow = styled.div`
   flex-wrap: wrap;
   gap: ${({ theme }) => theme.spacing.sm};
   align-items: center;
-  margin-bottom: ${({ theme }) => theme.spacing.lg};
-`;
-
-const TagFilterWrapper = styled.div`
-  flex: 1;
-  min-width: 200px;
-  max-width: 600px;
-`;
-
-const SearchInput = styled.input`
-  padding: ${({ theme }) => theme.spacing.xs} ${({ theme }) => theme.spacing.md};
-  border-radius: ${({ theme }) => theme.borderRadius.md};
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  background: transparent;
-  color: ${({ theme }) => theme.colors.text};
-  font-size: ${({ theme }) => theme.fontSize.sm};
-  width: 200px;
-
-  &::placeholder {
-    color: ${({ theme }) => theme.colors.textSecondary};
-  }
-
-  &:focus {
-    outline: none;
-    border-color: ${({ theme }) => theme.colors.primary};
-  }
 `;
 
 const TypeFilterGroup = styled.div`
@@ -327,34 +344,37 @@ export function HomePage() {
 
   return (
     <Container>
-      <FilterRow>
-        <SearchInput
-          type="text"
-          placeholder="Search..."
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-          data-testid="search-input"
-        />
-        <TagFilterWrapper>
-          <TagInput
-            tags={filterTags}
-            onChange={setFilterTags}
-            placeholder="Filter by tags"
+      <FilterContainer>
+        <SearchBar>
+          <SearchIcon><MagnifyingGlassIcon /></SearchIcon>
+          <SearchBarInput
+            type="text"
+            placeholder="Search..."
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            data-testid="search-input"
           />
-        </TagFilterWrapper>
-        <TypeFilterGroup>
-          {([undefined, 'image', 'gif', 'video'] as const).map((type) => (
-            <TypeFilterButton
-              key={type ?? 'all'}
-              $active={filterType === type}
-              onClick={() => setFilterType(type as MediaTypeFilter | undefined)}
-              data-testid={`type-filter-${type ?? 'all'}`}
-            >
-              {type === undefined ? 'All' : type === 'image' ? 'Pictures' : type === 'gif' ? 'GIFs' : 'Videos'}
-            </TypeFilterButton>
-          ))}
-        </TypeFilterGroup>
-      </FilterRow>
+        </SearchBar>
+        <FilterRow>
+          <TagFilterChips
+            tags={filterTags}
+            onAdd={(tag) => setFilterTags([...filterTags, tag])}
+            onRemove={(tag) => setFilterTags(filterTags.filter((t) => t !== tag))}
+          />
+          <TypeFilterGroup>
+            {([undefined, 'image', 'gif', 'video'] as const).map((type) => (
+              <TypeFilterButton
+                key={type ?? 'all'}
+                $active={filterType === type}
+                onClick={() => setFilterType(type as MediaTypeFilter | undefined)}
+                data-testid={`type-filter-${type ?? 'all'}`}
+              >
+                {type === undefined ? 'All' : type === 'image' ? 'Pictures' : type === 'gif' ? 'GIFs' : 'Videos'}
+              </TypeFilterButton>
+            ))}
+          </TypeFilterGroup>
+        </FilterRow>
+      </FilterContainer>
       {isLoading && (
         <LoadingText>Loading...</LoadingText>
       )}

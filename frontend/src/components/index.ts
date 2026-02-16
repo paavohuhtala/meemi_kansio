@@ -15,6 +15,7 @@ export { MasonryGrid } from './MasonryGrid';
 export { Media } from './Media';
 export { MediaOverlay } from './MediaOverlay';
 export { TagInput } from './TagInput';
+export { TagFilterChips } from './TagFilterChips';
 export { TagEditor } from './TagEditor';
 export { ToastProvider, useToast } from './Toast';
 export {
