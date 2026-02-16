@@ -8,6 +8,10 @@ export class BrowsePage {
   readonly uploadLink: Locator;
   readonly tagFilterInput: Locator;
   readonly noMatchText: Locator;
+  readonly typeFilterAll: Locator;
+  readonly typeFilterPictures: Locator;
+  readonly typeFilterGifs: Locator;
+  readonly typeFilterVideos: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -16,7 +20,11 @@ export class BrowsePage {
     this.emptyState = page.getByText('No uploads yet');
     this.uploadLink = page.getByRole('link', { name: 'Upload something' });
     this.tagFilterInput = page.getByTestId('tag-input-field');
-    this.noMatchText = page.getByText('No media matches the selected tags');
+    this.noMatchText = page.getByText('No media matches the selected filters');
+    this.typeFilterAll = page.getByTestId('type-filter-all');
+    this.typeFilterPictures = page.getByTestId('type-filter-image');
+    this.typeFilterGifs = page.getByTestId('type-filter-gif');
+    this.typeFilterVideos = page.getByTestId('type-filter-video');
   }
 
   async goto() {
