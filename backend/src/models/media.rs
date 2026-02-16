@@ -57,6 +57,8 @@ pub struct MediaResponse {
 pub struct MediaListResponse {
     pub items: Vec<MediaResponse>,
     pub next_cursor: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_offset: Option<i64>,
 }
 
 impl Media {

@@ -770,9 +770,11 @@ async fn set_tags(
 #[derive(Debug, Deserialize)]
 struct ListMediaParams {
     cursor: Option<DateTime<Utc>>,
+    offset: Option<i64>,
     limit: Option<i64>,
     tags: Option<String>,
     media_type: Option<MediaType>,
+    search: Option<String>,
 }
 
 async fn list_media(
@@ -793,62 +795,145 @@ async fn list_media(
         })
         .unwrap_or_default();
 
+    let has_search = params
+        .search
+        .as_ref()
+        .map_or(false, |s| !s.trim().is_empty());
+
     let rows = if tag_filter.is_empty() {
+        // ── No-tags branch ──
         let mut next_param = 1;
+        let mut search_param_idx = 0;
         let mut sql = String::from("SELECT * FROM media WHERE 1=1");
+
         if params.media_type.is_some() {
             sql.push_str(&format!(" AND media_type = ${next_param}"));
             next_param += 1;
         }
-        if params.cursor.is_some() {
-            sql.push_str(&format!(" AND created_at < ${next_param}"));
+
+        if has_search {
+            search_param_idx = next_param;
+            sql.push_str(&format!(
+                " AND search_vector @@ websearch_to_tsquery('simple', ${next_param})"
+            ));
             next_param += 1;
         }
-        sql.push_str(&format!(" ORDER BY created_at DESC LIMIT ${next_param}"));
 
+        if has_search {
+            sql.push_str(&format!(
+                " ORDER BY ts_rank(search_vector, websearch_to_tsquery('simple', ${search_param_idx})) DESC, created_at DESC"
+            ));
+            if params.offset.is_some() {
+                sql.push_str(&format!(" OFFSET ${next_param}"));
+                next_param += 1;
+            }
+        } else {
+            if params.cursor.is_some() {
+                sql.push_str(&format!(" AND created_at < ${next_param}"));
+                next_param += 1;
+            }
+            sql.push_str(" ORDER BY created_at DESC");
+        }
+
+        sql.push_str(&format!(" LIMIT ${next_param}"));
+
+        // Bind in $N order: media_type, search, offset|cursor, limit
         let mut q = sqlx::query_as::<_, Media>(&sql);
         if let Some(ref mt) = params.media_type {
             q = q.bind(mt);
         }
-        if let Some(cursor) = params.cursor {
+        if has_search {
+            q = q.bind(params.search.as_ref().unwrap().trim());
+        }
+        if has_search {
+            if let Some(offset) = params.offset {
+                q = q.bind(offset);
+            }
+        } else if let Some(cursor) = params.cursor {
             q = q.bind(cursor);
         }
         q = q.bind(limit + 1);
         q.fetch_all(&state.db).await?
     } else {
+        // ── Tags branch ──
         let tag_count = tag_filter.len() as i64;
-        // $1 = tags array, next params are dynamic
+        // $1 = tags array, dynamic params start at $2
         let mut next_param = 2;
+        let mut search_param_idx = 0;
         let mut extra_where = String::new();
+
         if params.media_type.is_some() {
             extra_where.push_str(&format!(" AND m.media_type = ${next_param}"));
             next_param += 1;
         }
-        if params.cursor.is_some() {
-            extra_where.push_str(&format!(" AND m.created_at < ${next_param}"));
+
+        if has_search {
+            search_param_idx = next_param;
+            extra_where.push_str(&format!(
+                " AND m.search_vector @@ websearch_to_tsquery('simple', ${next_param})"
+            ));
             next_param += 1;
         }
+
+        let order_by = if has_search {
+            format!(
+                "ORDER BY ts_rank(m.search_vector, websearch_to_tsquery('simple', ${search_param_idx})) DESC, m.created_at DESC"
+            )
+        } else {
+            if params.cursor.is_some() {
+                extra_where.push_str(&format!(" AND m.created_at < ${next_param}"));
+                next_param += 1;
+            }
+            "ORDER BY m.created_at DESC".to_string()
+        };
+
+        let having_param = next_param;
+        next_param += 1;
+
+        let limit_param = next_param;
+        next_param += 1;
+
+        let offset_clause = if has_search && params.offset.is_some() {
+            let clause = format!("OFFSET ${next_param}");
+            // next_param += 1; // not needed, last param
+            clause
+        } else {
+            String::new()
+        };
+
         let sql = format!(
             "SELECT m.* FROM media m
              JOIN media_tags mt ON mt.media_id = m.id
              JOIN tags t ON t.id = mt.tag_id
              WHERE t.name = ANY($1){extra_where}
              GROUP BY m.id
-             HAVING COUNT(DISTINCT t.name) = ${next_param}
-             ORDER BY m.created_at DESC
-             LIMIT ${}", next_param + 1
+             HAVING COUNT(DISTINCT t.name) = ${having_param}
+             {order_by}
+             LIMIT ${limit_param}
+             {offset_clause}"
         );
 
+        // Bind in $N order: tag_filter, media_type, search, cursor, tag_count, limit, offset
         let mut q = sqlx::query_as::<_, Media>(&sql);
         q = q.bind(&tag_filter);
         if let Some(ref mt) = params.media_type {
             q = q.bind(mt);
         }
-        if let Some(cursor) = params.cursor {
-            q = q.bind(cursor);
+        if has_search {
+            q = q.bind(params.search.as_ref().unwrap().trim());
+        }
+        if !has_search {
+            if let Some(cursor) = params.cursor {
+                q = q.bind(cursor);
+            }
         }
         q = q.bind(tag_count);
         q = q.bind(limit + 1);
+        if has_search {
+            if let Some(offset) = params.offset {
+                q = q.bind(offset);
+            }
+        }
         q.fetch_all(&state.db).await?
     };
 
@@ -858,8 +943,14 @@ async fn list_media(
         .take(limit as usize)
         .collect::<Vec<_>>();
 
-    let next_cursor = if has_more {
+    let next_cursor = if has_more && !has_search {
         items.last().map(|m| m.created_at)
+    } else {
+        None
+    };
+
+    let next_offset = if has_more && has_search {
+        Some(params.offset.unwrap_or(0) + limit)
     } else {
         None
     };
@@ -877,5 +968,6 @@ async fn list_media(
             })
             .collect(),
         next_cursor,
+        next_offset,
     }))
 }
