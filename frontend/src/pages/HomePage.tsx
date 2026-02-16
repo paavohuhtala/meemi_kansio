@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { debounce } from 'es-toolkit';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import styled from 'styled-components';
 import { listMedia, type MediaItem, type MediaTypeFilter } from '../api/media';
@@ -21,6 +22,25 @@ const TagFilterWrapper = styled.div`
   flex: 1;
   min-width: 200px;
   max-width: 600px;
+`;
+
+const SearchInput = styled.input`
+  padding: ${({ theme }) => theme.spacing.xs} ${({ theme }) => theme.spacing.md};
+  border-radius: ${({ theme }) => theme.borderRadius.md};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  background: transparent;
+  color: ${({ theme }) => theme.colors.text};
+  font-size: ${({ theme }) => theme.fontSize.sm};
+  width: 200px;
+
+  &::placeholder {
+    color: ${({ theme }) => theme.colors.textSecondary};
+  }
+
+  &:focus {
+    outline: none;
+    border-color: ${({ theme }) => theme.colors.primary};
+  }
 `;
 
 const TypeFilterGroup = styled.div`
@@ -213,25 +233,59 @@ export function HomePage() {
     [searchParams, setSearchParams],
   );
 
+  const searchQuery = searchParams.get('search') ?? '';
+  const [searchInput, setSearchInput] = useState(searchQuery);
+
+  const debouncedSetSearch = useMemo(
+    () =>
+      debounce((value: string) => {
+        if (value) {
+          searchParams.set('search', value);
+        } else {
+          searchParams.delete('search');
+        }
+        setSearchParams(searchParams, { replace: true });
+      }, 300),
+    [searchParams, setSearchParams],
+  );
+
+  useEffect(() => {
+    debouncedSetSearch(searchInput);
+    return () => debouncedSetSearch.cancel();
+  }, [searchInput, debouncedSetSearch]);
+
+  useEffect(() => {
+    const urlSearch = searchParams.get('search') ?? '';
+    if (urlSearch !== searchInput) {
+      setSearchInput(urlSearch);
+    }
+  }, [searchParams]);
+
   function tagFilterUrl(tag: string): string {
     const tags = filterTags.includes(tag) ? filterTags : [...filterTags, tag];
     const params = new URLSearchParams();
     params.set('tags', tags.join(','));
     if (filterType) params.set('type', filterType);
+    if (searchQuery) params.set('search', searchQuery);
     return `/?${params.toString()}`;
   }
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } =
     useInfiniteQuery({
-      queryKey: ['media-list', { tags: filterTags, type: filterType }],
+      queryKey: ['media-list', { tags: filterTags, type: filterType, search: searchQuery }],
       queryFn: ({ pageParam }) =>
         listMedia(
-          pageParam,
+          searchQuery ? undefined : pageParam,
           filterTags.length > 0 ? filterTags : undefined,
           filterType,
+          searchQuery || undefined,
+          searchQuery && pageParam ? Number(pageParam) : undefined,
         ),
       initialPageParam: undefined as string | undefined,
-      getNextPageParam: (lastPage) => lastPage.next_cursor ?? undefined,
+      getNextPageParam: (lastPage) => {
+        if (lastPage.next_offset != null) return String(lastPage.next_offset);
+        return lastPage.next_cursor ?? undefined;
+      },
     });
 
   useEffect(() => {
@@ -252,7 +306,7 @@ export function HomePage() {
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   const items = data?.pages.flatMap((p) => p.items) ?? [];
-  const hasFilters = filterTags.length > 0 || !!filterType;
+  const hasFilters = filterTags.length > 0 || !!filterType || !!searchQuery;
 
   if (isLoading && !hasFilters) return <LoadingText>Loading...</LoadingText>;
 
@@ -270,6 +324,13 @@ export function HomePage() {
   return (
     <Container>
       <FilterRow>
+        <SearchInput
+          type="text"
+          placeholder="Search..."
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          data-testid="search-input"
+        />
         <TagFilterWrapper>
           <TagInput
             tags={filterTags}
