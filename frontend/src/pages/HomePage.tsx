@@ -195,7 +195,10 @@ export function HomePage() {
     [searchParams, setSearchParams],
   );
 
-  const filterType = (searchParams.get('type') as MediaTypeFilter) || undefined;
+  const rawType = searchParams.get('type');
+  const filterType = rawType && (['image', 'video', 'gif'] as const).includes(rawType as MediaTypeFilter)
+    ? (rawType as MediaTypeFilter)
+    : undefined;
 
   const setFilterType = useCallback(
     (type: MediaTypeFilter | undefined) => {
@@ -248,7 +251,7 @@ export function HomePage() {
 
   const items = data?.pages.flatMap((p) => p.items) ?? [];
 
-  if (items.length === 0 && filterTags.length === 0) {
+  if (items.length === 0 && filterTags.length === 0 && !filterType) {
     return (
       <EmptyState>
         <p>No uploads yet.</p>
