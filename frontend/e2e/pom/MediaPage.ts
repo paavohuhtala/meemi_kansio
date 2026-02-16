@@ -89,7 +89,11 @@ export class MediaPage {
   }
 
   async saveTags() {
+    const saved = this.page.waitForResponse(
+      (res) => res.url().includes('/tags') && res.request().method() === 'PUT',
+    );
     await this.saveTagsButton.click();
+    await saved;
   }
 
   async cancelTagEdit() {

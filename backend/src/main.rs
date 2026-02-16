@@ -90,7 +90,7 @@ async fn main() {
 
     let mut app = Router::new()
         .route("/api/health", get(health))
-        .merge(routes::api_router())
+        .merge(routes::api_router(state.config.enable_test_routes))
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http())
         .with_state(state.clone());

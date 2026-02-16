@@ -12,6 +12,23 @@ export function serverUrl(): string {
   return `http://localhost:${FIRST_BACKEND_PORT + workerIndex()}`;
 }
 
+export async function seedMedia(
+  request: {
+    post: (
+      url: string,
+      options?: object,
+    ) => Promise<{ ok: () => boolean; status: () => number; text: () => Promise<string> }>;
+  },
+  count: number,
+): Promise<void> {
+  const res = await request.post(`${serverUrl()}/api/test/seed-media`, {
+    data: { count },
+  });
+  if (!res.ok()) {
+    throw new Error(`Seed media failed: ${res.status()} ${await res.text()}`);
+  }
+}
+
 export async function resetDatabase(): Promise<void> {
   const res = await fetch(`http://localhost:${HEALTH_CHECK_PORT}/reset/${workerIndex()}`, {
     method: 'POST',

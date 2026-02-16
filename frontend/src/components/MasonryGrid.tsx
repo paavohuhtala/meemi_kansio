@@ -78,7 +78,7 @@ export function MasonryGrid<T>({
     <div
       ref={containerRef}
       {...rest}
-      style={{ position: 'relative', height: ready ? containerHeight : undefined }}
+      style={{ position: 'relative', height: ready ? containerHeight : '200vh' }}
     >
       {items.map((item) => {
         const key = getItemKey(item);

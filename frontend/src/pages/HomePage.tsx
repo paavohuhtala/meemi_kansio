@@ -189,7 +189,7 @@ export function HomePage() {
           fetchNextPage();
         }
       },
-      { rootMargin: '200px' },
+      { rootMargin: '600px' },
     );
 
     observer.observe(el);
@@ -246,7 +246,7 @@ export function HomePage() {
                 mediaType={item.media_type}
                 clipboardUrl={item.clipboard_url}
               />
-              {item.name && <NameOverlay data-overlay>{item.name}</NameOverlay>}
+              {item.name && <NameOverlay data-overlay data-testid="card-name">{item.name}</NameOverlay>}
             </CardLink>
             {item.tags.length > 0 && (
               <CardTags>

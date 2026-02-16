@@ -181,6 +181,7 @@ function spawnBackend(index: number): ChildProcess {
       UPLOAD_DIR: uploadDir,
       MODEL_DIR: modelDir,
       RUST_LOG: 'info',
+      ENABLE_TEST_ROUTES: '1',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });

@@ -47,4 +47,12 @@ export class BrowsePage {
     await this.tagFilterInput.fill(tag);
     await this.tagFilterInput.press('Enter');
   }
+
+  cardNames() {
+    return this.grid.getByTestId('card-name');
+  }
+
+  async scrollToLoadMore() {
+    await this.page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  }
 }

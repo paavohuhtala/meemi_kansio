@@ -14,6 +14,7 @@ pub struct Config {
     pub s3_endpoint: Option<String>,
     pub s3_access_key_id: Option<String>,
     pub s3_secret_access_key: Option<String>,
+    pub enable_test_routes: bool,
 }
 
 impl Config {
@@ -37,6 +38,9 @@ impl Config {
             s3_endpoint: env::var("S3_ENDPOINT").ok(),
             s3_access_key_id: env::var("S3_ACCESS_KEY_ID").ok(),
             s3_secret_access_key: env::var("S3_SECRET_ACCESS_KEY").ok(),
+            enable_test_routes: env::var("ENABLE_TEST_ROUTES")
+                .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+                .unwrap_or(false),
         }
     }
 }
