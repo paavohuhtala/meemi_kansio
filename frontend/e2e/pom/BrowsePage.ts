@@ -12,6 +12,7 @@ export class BrowsePage {
   readonly typeFilterPictures: Locator;
   readonly typeFilterGifs: Locator;
   readonly typeFilterVideos: Locator;
+  readonly searchInput: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -25,6 +26,7 @@ export class BrowsePage {
     this.typeFilterPictures = page.getByTestId('type-filter-image');
     this.typeFilterGifs = page.getByTestId('type-filter-gif');
     this.typeFilterVideos = page.getByTestId('type-filter-video');
+    this.searchInput = page.getByTestId('search-input');
   }
 
   async goto() {
@@ -58,6 +60,17 @@ export class BrowsePage {
 
   cardNames() {
     return this.grid.getByTestId('card-name');
+  }
+
+  async search(query: string) {
+    await this.searchInput.fill(query);
+    // Wait for debounce (300ms) + network response
+    await this.page.waitForResponse((res) => res.url().includes('/api/media'));
+  }
+
+  async clearSearch() {
+    await this.searchInput.clear();
+    await this.page.waitForResponse((res) => res.url().includes('/api/media'));
   }
 
   async scrollToLoadMore() {
