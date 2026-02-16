@@ -12,6 +12,7 @@ pub enum UserRole {
 }
 
 #[derive(Debug, Clone, FromRow)]
+#[allow(dead_code)]
 pub struct User {
     pub id: Uuid,
     pub username: String,

@@ -15,6 +15,7 @@ pub enum MediaType {
 }
 
 #[derive(Debug, Clone, FromRow)]
+#[allow(dead_code)]
 pub struct Media {
     pub id: Uuid,
     pub name: Option<String>,
